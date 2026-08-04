@@ -105,6 +105,21 @@ class QuestionMatcher:
         self.min_token_length = min_token_length
         self.stopwords = stopwords
 
+    @staticmethod
+    def _similarity(normalized_a: str, normalized_b: str) -> float:
+        """
+        Shared text-similarity scoring used by both the fuzzy pass and the
+        name-tiebreak reconciliation step below, so both apply the exact
+        same notion of "close enough" -- identical strings already score
+        1.0 via SequenceMatcher, so no separate exact-match branch is
+        needed here.
+        """
+
+        if not normalized_a or not normalized_b:
+            return 0.0
+
+        return difflib.SequenceMatcher(None, normalized_a, normalized_b).ratio()
+
     def build_matches(self) -> list[MatchCandidate]:
         colectica_questions = list(self.colectica_module.normalized_questions.all())
         forsta_questions = list(self.forsta_module.normalized_questions.all())
@@ -191,7 +206,7 @@ class QuestionMatcher:
                     if not forsta_text:
                         continue
 
-                    score = difflib.SequenceMatcher(None, normalized, forsta_text).ratio()
+                    score = self._similarity(normalized, forsta_text)
                     if score > best_score:
                         best_score = score
                         best_forsta_id = forsta_id
@@ -216,7 +231,90 @@ class QuestionMatcher:
                     )
                 )
 
+        colectica_by_id = {question.id: question for question in colectica_questions}
+        forsta_by_name: dict[str, str] = {}
+        for question in forsta_questions:
+            key = question.name.strip().casefold()
+            forsta_by_name.setdefault(key, question.id)
+
+        self._apply_name_tiebreak(
+            candidates, colectica_by_id, colectica_normalized, forsta_normalized, forsta_by_name
+        )
+
         return candidates
+
+    def _apply_name_tiebreak(
+            self,
+            candidates: list[MatchCandidate],
+            colectica_by_id: dict,
+            colectica_normalized: dict[str, str],
+            forsta_normalized: dict[str, str],
+            forsta_by_name: dict[str, str],
+    ) -> None:
+        """
+        Name is a tiebreak, never an override (see question_matcher's module
+        docstring / SKILL.md): a same-named Forsta+ question only replaces
+        the text-based winner when it is *also* independently a legitimate
+        match on wording grounds (clears `fuzzy_threshold`). A true
+        false-friend -- same name, unrelated content -- never triggers a
+        reassignment, so it's left exactly as the text-only passes decided.
+
+        Mutates `candidates` in place. Runs after both the exact and fuzzy
+        passes, so it sees their final picture, including questions that
+        ended up unmatched (`forsta_question_id=None`).
+        """
+
+        used_forsta_ids = {
+            candidate.forsta_question_id
+            for candidate in candidates
+            if candidate.forsta_question_id is not None
+        }
+
+        for index, candidate in enumerate(candidates):
+            colectica_question = colectica_by_id[candidate.colectica_question_id]
+            same_name_id = forsta_by_name.get(colectica_question.name.strip().casefold())
+
+            if same_name_id is None:
+                continue
+            if same_name_id == candidate.forsta_question_id:
+                continue
+            if same_name_id in used_forsta_ids:
+                continue
+
+            colectica_text = colectica_normalized.get(candidate.colectica_question_id, "")
+            forsta_text = forsta_normalized.get(same_name_id, "")
+            same_name_score = self._similarity(colectica_text, forsta_text)
+
+            # Forsta+ source XML often writes interviewer instructions
+            # inline in the question text ("What is your email address?
+            # CODE HERE AND ENTER EMAIL ADDRESS AT NEXT SCREEN"), where
+            # Colectica keeps them in a separate field -- this can drag the
+            # plain character-similarity ratio well below the threshold
+            # even though it's clearly the same question. A clean
+            # containment relationship (one normalized text is fully a
+            # prefix/substring of the other) is treated as a match on its
+            # own merits, since it's exactly this "same wording plus trailing
+            # notes" shape, not two unrelated questions coincidentally
+            # scoring high.
+            is_contained = bool(colectica_text) and bool(forsta_text) and (
+                colectica_text in forsta_text or forsta_text in colectica_text
+            )
+
+            if same_name_score < self.fuzzy_threshold and not is_contained:
+                continue
+            if is_contained:
+                same_name_score = max(same_name_score, self.fuzzy_threshold)
+
+            if candidate.forsta_question_id is not None:
+                used_forsta_ids.discard(candidate.forsta_question_id)
+
+            used_forsta_ids.add(same_name_id)
+            candidates[index] = MatchCandidate(
+                colectica_question_id=candidate.colectica_question_id,
+                forsta_question_id=same_name_id,
+                score=same_name_score,
+                method=QuestionMatch.MatchMethod.NAME,
+            )
 
 
 @transaction.atomic

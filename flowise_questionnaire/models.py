@@ -632,6 +632,7 @@ class QuestionMatch(models.Model):
     class MatchMethod(models.TextChoices):
         EXACT = "exact", "Exact"
         FUZZY = "fuzzy", "Fuzzy"
+        NAME = "name", "Name"
         MANUAL = "manual", "Manual"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

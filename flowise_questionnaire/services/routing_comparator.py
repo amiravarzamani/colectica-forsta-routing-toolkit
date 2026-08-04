@@ -44,6 +44,15 @@ class RoutingComparator:
     question pair. Does not evaluate condition semantics -- that is Step 8
     (ForstaConditionEvaluator), used separately for simulated-path comparison.
 
+    Both the *source* and *target* side of an edge are compared by matched
+    identity (via QuestionMatch), not by raw name string: a target question
+    with no QuestionMatch of its own falls back to its own raw (casefolded)
+    name, so a genuinely unmatched target behaves as before. A target that
+    IS matched but named differently across systems (case, a Forsta+ "q"
+    suffix, etc.) is resolved to its counterpart's name before comparing --
+    without this, edges that are structurally identical on both sides were
+    reported as missing purely because of target-naming differences.
+
     Operates on every QuestionMatch with a forsta_question assigned,
     regardless of its `confirmed` flag -- confirmation tracks human review
     state, it is not a precondition for computing the structural diff.
@@ -58,6 +67,23 @@ class RoutingComparator:
         self.question_matches = list(question_matches)
         self._colectica_edges_by_source = _conditional_edges_by_source(colectica_module)
         self._forsta_edges_by_source = _conditional_edges_by_source(forsta_module)
+
+        # Cross-system name resolution for *target* questions, built once
+        # from the same QuestionMatch rows the source side already relies
+        # on -- so an edge's target is compared against the other system's
+        # targets by matched identity, not by raw name string, the same way
+        # source questions already are. Without this, a target that's
+        # legitimately present on both sides but named differently
+        # (case, a Forsta+ "q" suffix, etc.) is reported as missing.
+        self._colectica_to_forsta_name: dict[str, str] = {}
+        self._forsta_to_colectica_name: dict[str, str] = {}
+        for match in self.question_matches:
+            if match.forsta_question_id is None:
+                continue
+            colectica_name = match.colectica_question.name.strip().casefold()
+            forsta_name = match.forsta_question.name.strip().casefold()
+            self._colectica_to_forsta_name[colectica_name] = forsta_name
+            self._forsta_to_colectica_name[forsta_name] = colectica_name
 
     def compare(self) -> list[RoutingDiscrepancy]:
         discrepancies: list[RoutingDiscrepancy] = []
@@ -77,13 +103,18 @@ class RoutingComparator:
         colectica_edges = self._colectica_edges_by_source.get(colectica_name, [])
         forsta_edges = self._forsta_edges_by_source.get(forsta_name, [])
 
-        colectica_targets = {edge.target_question for edge in colectica_edges}
-        forsta_targets = {edge.target_question for edge in forsta_edges}
+        colectica_targets = {edge.target_question.strip().casefold() for edge in colectica_edges}
+        forsta_targets = {edge.target_question.strip().casefold() for edge in forsta_edges}
 
         discrepancies: list[RoutingDiscrepancy] = []
 
         for edge in colectica_edges:
-            if edge.target_question in forsta_targets:
+            target_cf = edge.target_question.strip().casefold()
+            # Fall back to the raw (casefolded) name when the target has no
+            # cross-system match of its own -- same behavior as before for
+            # a genuinely-unmatched target, just case-insensitive now too.
+            resolved_forsta_target = self._colectica_to_forsta_name.get(target_cf, target_cf)
+            if resolved_forsta_target in forsta_targets:
                 continue
 
             discrepancies.append(
@@ -101,7 +132,9 @@ class RoutingComparator:
             )
 
         for edge in forsta_edges:
-            if edge.target_question in colectica_targets:
+            target_cf = edge.target_question.strip().casefold()
+            resolved_colectica_target = self._forsta_to_colectica_name.get(target_cf, target_cf)
+            if resolved_colectica_target in colectica_targets:
                 continue
 
             # An explicit Forsta+ FalseNodes branch (see decision §6.2) is
