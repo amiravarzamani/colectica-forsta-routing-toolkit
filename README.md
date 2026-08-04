@@ -52,10 +52,19 @@ against the Colectica-derived routing for the same wave:
 2. **Extract schema** (`forsta_xml_schema_extractor.ForstaXmlSchemaExtractor`) → `NormalizedQuestion` rows
 3. **Extract routing** (`forsta_xml_routing_extractor.ForstaXmlRoutingExtractor`) → `RoutingEdge` rows
 4. **Match questions** (`question_matcher.build_question_matches`) → `QuestionMatch` rows, pairing
-   each Colectica question with its best Forsta+ counterpart (exact normalized-text match, then
-   fuzzy fallback)
+   each Colectica question with its best Forsta+ counterpart in three passes: exact
+   normalized-text match, then fuzzy fallback (`difflib`, 0.75 threshold), then a **name-tiebreak**
+   reconciliation step — if a question's current match has a different name than itself, and an
+   unused same-named question exists on the other side whose own wording *also* clears the fuzzy
+   threshold (or is a clean prefix/substring match — Forsta+ source text sometimes folds
+   interviewer instructions inline where Colectica keeps them separate), the same-named one takes
+   over. Name is a tiebreak, never an override: a same-named-but-unrelated-content "false friend"
+   is left alone.
 5. **Compare routing** (`routing_comparator.compare_routing_for_modules`) → `RoutingDiscrepancy`
-   rows — a *structural* diff (edge target presence only, not condition semantics)
+   rows — a *structural* diff (edge target presence only, not condition semantics). Both the
+   source and target question of each edge are resolved through `QuestionMatch` before comparing,
+   not compared as raw name strings, so a target present on both sides under a different name
+   (casing, a Forsta+ suffix, etc.) isn't wrongly reported as missing.
 
 Browsable at `/questionnaires/routing-diff/<colectica_module_id>/<forsta_module_id>/`, with a
 per-discrepancy detail page rendering both systems' routing graphs side by side.
@@ -164,8 +173,8 @@ flowise_questionnaire/
     forsta_condition_evaluator.py  evaluate Forsta+-syntax routing conditions against answers
     coverage_intent_builder.py     generate deterministic test-case seed inputs
     routing_simulator.py           check routing coverage
-    question_matcher.py            pair Colectica and Forsta+ questions (exact + fuzzy match)
-    routing_comparator.py          structural diff of matched questions' routing edges
+    question_matcher.py            pair Colectica and Forsta+ questions (exact + fuzzy + name-tiebreak)
+    routing_comparator.py          structural diff of matched questions' routing edges (source + target resolved via QuestionMatch)
     routing_diff_explainer.py      plain-language explanation text for the routing-diff GUI
     agentflow_payload_builder.py   build the Module Review Flowise payload
     flowise_client.py              send/receive the Module Review agentflow
@@ -224,6 +233,12 @@ is a plain-language audit of god nodes, surprising connections, and suggested qu
   currently produced by `routing_comparator.py` — reserved, not a bug.
 - An `mcp_server` tool for the latest `ModuleAIReview` result is designed but not yet built —
   intentionally on hold pending a separate go-ahead, not an oversight.
+- `question_matcher.py` known limitation: two Colectica questions with byte-identical, generic
+  reused wording (e.g. a form-letter follow-up like "And in which town is that?" asked in more
+  than one routing context) can't be disambiguated by text similarity alone, so the wrong one can
+  win a match. The name-tiebreak doesn't help here since the questions' *names* don't collide,
+  only their text does. Not currently fixed — would need a different signal (e.g. routing-graph
+  position) than text similarity.
 
 ## License
 
