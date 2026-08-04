@@ -118,7 +118,7 @@ app already computed and persisted.
 ### Setup
 
 ```bash
-git clone git@github.com:amiravarzamani/flowise-questionnaire-system.git
+git clone https://github.com/amiravarzamani/colectica-forsta-routing-toolkit.git
 cd flowise-questionnaire-system
 
 python3 -m venv venv
@@ -126,10 +126,10 @@ source venv/bin/activate        # venv\Scripts\activate on Windows
 pip install -r requirements.txt
 ```
 
-Database connection and Flowise settings are configured directly in `config/settings.py`
-(`DEBUG = True` and a dev `SECRET_KEY`/DB password are committed — this is a dev-only
-configuration, not production-hardened). Adjust the `DATABASES` and `FLOWISE_*` settings there
-to match your environment before running migrations.
+Copy `.env.example` to `.env` and fill in `SECRET_KEY`/`DB_PASSWORD`/`DB_HOST` — `config/settings.py`
+has no defaults for these and will fail loudly at startup if they're missing. Adjust the
+`DATABASES` and `FLOWISE_*` settings in `config/settings.py` to match your environment before
+running migrations.
 
 ```bash
 python manage.py migrate
