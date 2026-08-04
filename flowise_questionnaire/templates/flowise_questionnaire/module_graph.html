@@ -1,0 +1,1494 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Routing graph - {{ module.name }}</title>
+
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f3f4f6;
+        }
+
+        .topbar {
+            height: 64px;
+            box-sizing: border-box;
+            background: #111827;
+            color: #ffffff;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .topbar h1 {
+            margin: 0;
+            font-size: 20px;
+        }
+
+        .topbar a {
+            color: #ffffff;
+            text-decoration: none;
+            background: #374151;
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-left: 8px;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 390px;
+            height: calc(100vh - 64px);
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        #graph {
+            width: 100%;
+            height: calc(100vh - 64px);
+            min-height: 0;
+            background: #ffffff;
+            border-right: 1px solid #e5e7eb;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .side-panel {
+            height: calc(100vh - 64px);
+            box-sizing: border-box;
+            background: #ffffff;
+            padding: 18px;
+            overflow: auto;
+        }
+
+        .summary-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 12px;
+            background: #f9fafb;
+        }
+
+        .summary-card h2 {
+            margin-top: 0;
+            font-size: 16px;
+        }
+
+        .summary-card p {
+            line-height: 1.45;
+        }
+
+        .error-card {
+            border-color: #fecaca;
+            background: #fef2f2;
+            color: #991b1b;
+        }
+
+        .read-list {
+            margin: 8px 0 0 18px;
+            padding: 0;
+            color: #374151;
+            font-size: 14px;
+            line-height: 1.45;
+        }
+
+        .read-list li {
+            margin-bottom: 6px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .legend-note {
+            display: block;
+            margin: -4px 0 10px 22px;
+            color: #6b7280;
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
+        .legend-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            display: inline-block;
+            flex: 0 0 auto;
+        }
+
+        .question { background: #60a5fa; }
+        .start { background: #16a34a; }
+        .loop { background: #f97316; }
+        .external { background: #7c3aed; }
+        .unknown { background: #6b7280; }
+
+        .edge-legend-item {
+            display: grid;
+            grid-template-columns: 64px 1fr;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #111827;
+        }
+
+        .edge-line {
+            width: 56px;
+            height: 0;
+            border-top: 3px solid #374151;
+            position: relative;
+        }
+
+        .edge-line::after {
+            content: "";
+            position: absolute;
+            right: -2px;
+            top: -6px;
+            border-left: 8px solid currentColor;
+            border-top: 5px solid transparent;
+            border-bottom: 5px solid transparent;
+            color: inherit;
+        }
+
+        .edge-line.sequential { border-top: 2px dashed #9ca3af; color: #9ca3af; }
+        .edge-line.loop-edge { border-top-color: #f97316; color: #f97316; }
+        .edge-line.covered { border-top-color: #16a34a; color: #16a34a; }
+        .edge-line.not-covered { border-top-color: #dc2626; color: #dc2626; }
+        .edge-line.warning { border-top-color: #d97706; color: #d97706; }
+
+        .coverage-pill,
+        .detail-pill {
+            display: inline-block;
+            padding: 3px 7px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-right: 4px;
+            margin-bottom: 4px;
+        }
+
+        .coverage-covered { background: #dcfce7; color: #166534; }
+        .coverage-not-covered { background: #fee2e2; color: #991b1b; }
+        .coverage-warning { background: #fef3c7; color: #92400e; }
+        .coverage-unknown { background: #f3f4f6; color: #374151; }
+
+        .pill-question { background: #dbeafe; color: #1e40af; }
+        .pill-start { background: #dcfce7; color: #166534; }
+        .pill-conditional { background: #fef3c7; color: #92400e; }
+        .pill-sequential { background: #f3f4f6; color: #374151; }
+        .pill-loop { background: #ffedd5; color: #9a3412; }
+
+        .node-detail {
+            font-size: 14px;
+            background: #ffffff;
+            color: #111827;
+            border-radius: 8px;
+            overflow: auto;
+            max-height: 520px;
+        }
+
+        .detail-title {
+            margin: 0 0 8px 0;
+            font-size: 16px;
+            color: #111827;
+        }
+
+        .detail-subtitle {
+            color: #6b7280;
+            font-size: 13px;
+            margin-bottom: 12px;
+        }
+
+        .detail-section {
+            border-top: 1px solid #e5e7eb;
+            padding-top: 10px;
+            margin-top: 10px;
+        }
+
+        .detail-section h3 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #374151;
+        }
+
+        .detail-kv {
+            margin: 5px 0;
+            line-height: 1.4;
+        }
+
+        .detail-kv strong {
+            color: #111827;
+        }
+
+        .route-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 8px;
+            background: #f9fafb;
+        }
+
+        .route-line {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .condition-text {
+            display: block;
+            background: #f3f4f6;
+            padding: 6px;
+            border-radius: 6px;
+            font-family: Consolas, Monaco, monospace;
+            font-size: 12px;
+            line-height: 1.35;
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin-top: 4px;
+        }
+
+        .empty-detail {
+            color: #6b7280;
+            font-size: 13px;
+        }
+
+        .raw-json {
+            white-space: pre-wrap;
+            font-size: 12px;
+            background: #111827;
+            color: #e5e7eb;
+            padding: 10px;
+            border-radius: 8px;
+            overflow: auto;
+            max-height: 260px;
+        }
+
+        .developer-details {
+            margin-top: 10px;
+        }
+
+        .developer-details summary {
+            cursor: pointer;
+            font-weight: bold;
+            color: #374151;
+            font-size: 13px;
+        }
+
+        .graph-error {
+            padding: 24px;
+            color: #991b1b;
+            font-size: 15px;
+        }
+
+        .graph-loading {
+            padding: 24px;
+            color: #6b7280;
+            font-size: 15px;
+        }
+
+        .control-row {
+            display: block;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #111827;
+            cursor: pointer;
+        }
+
+        .control-row input {
+            margin-right: 6px;
+        }
+
+        .small-button {
+            display: inline-block;
+            margin-top: 8px;
+            margin-right: 4px;
+            padding: 8px 10px;
+            background: #374151;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .small-button:hover { background: #1f2937; }
+    </style>
+</head>
+<body>
+
+<div class="topbar">
+    <h1>Routing graph: {{ module.name }}{% if module.version %} {{ module.version }}{% endif %}</h1>
+    <div>
+        <a href="{% url 'flowise_questionnaire:module_detail' module.id %}">Back to module</a>
+        <a href="{% url 'flowise_questionnaire:module_list' %}">Modules</a>
+    </div>
+</div>
+
+<div class="layout">
+    <div id="graph">
+        <div id="graph-loading" class="graph-loading">Loading graph...</div>
+    </div>
+
+    <aside class="side-panel">
+        <div class="summary-card">
+            <h2>Graph summary</h2>
+            <p><strong>Nodes:</strong> {{ graph.nodes_json|length }}</p>
+            <p><strong>Edges:</strong> {{ graph.edges_json|length }}</p>
+        </div>
+
+        {% if routing_simulation_error %}
+            <div class="summary-card error-card">
+                <h2>Coverage overlay unavailable</h2>
+                <p>{{ routing_simulation_error }}</p>
+            </div>
+        {% endif %}
+
+        <div class="summary-card">
+            <h2>How to read this graph</h2>
+            <ul class="read-list">
+                <li>Numbered blue circles are questionnaire questions in extracted module order.</li>
+                <li>The green numbered circle is the first question detected inside this module.</li>
+                <li>This does not always mean an unconditional start; the question may still depend on external prerequisites.</li>
+                <li>Dashed grey arrows labelled <strong>next</strong> mean normal sequence flow.</li>
+                <li>Green conditional arrows are verified as covered by deterministic coverage intents.</li>
+                <li>Amber conditional arrows are unmatched/unknown coverage and need inspection.</li>
+                <li>Orange boxes and arrows represent loop containers or repeated groups.</li>
+                <li>Click a node or edge to see a readable routing explanation.</li>
+                <li>Clicking a node highlights that question, its prerequisite/source nodes, and incoming dependency routes.</li>
+            </ul>
+        </div>
+
+        <div class="summary-card">
+            <h2>Graph controls</h2>
+
+            <label class="control-row">
+                <input type="checkbox" id="toggle-sequential" checked>
+                Show sequential edges
+            </label>
+
+            <label class="control-row">
+                <input type="checkbox" id="toggle-conditional" checked>
+                Show conditional edges
+            </label>
+
+            <label class="control-row">
+                <input type="checkbox" id="toggle-loop" checked>
+                Show loop edges
+            </label>
+
+            <button id="fit-graph-button" class="small-button" type="button">Fit graph</button>
+            <button id="show-all-button" class="small-button" type="button">Show all</button>
+            <button id="show-conditional-button" class="small-button" type="button">Show only conditional routes</button>
+            <button id="show-sequential-button" class="small-button" type="button">Show only normal sequence</button>
+            <button id="reset-highlight-button" class="small-button" type="button">Reset highlight</button>
+        </div>
+
+        <div class="summary-card">
+            <h2>Node legend</h2>
+            <div class="legend-item"><span class="legend-dot start"></span>First question in this module</div>
+            <span class="legend-note">This does not always mean an unconditional start. It may still require external prerequisite conditions.</span>
+            <div class="legend-item"><span class="legend-dot question"></span>Question</div>
+            <div class="legend-item"><span class="legend-dot loop"></span>Loop container</div>
+            <div class="legend-item"><span class="legend-dot external"></span>External / multi-source variable</div>
+            <div class="legend-item"><span class="legend-dot unknown"></span>Unknown target</div>
+        </div>
+
+        <div class="summary-card">
+            <h2>Edge legend</h2>
+            <div class="edge-legend-item"><span class="edge-line sequential"></span><span>Dashed grey arrow = normal next-question sequence.</span></div>
+            <div class="edge-legend-item"><span class="edge-line covered"></span><span>Green conditional arrow = covered by deterministic coverage intent.</span></div>
+            <div class="edge-legend-item"><span class="edge-line not-covered"></span><span>Red conditional arrow = conditional route exists but is not covered.</span></div>
+            <div class="edge-legend-item"><span class="edge-line warning"></span><span>Amber conditional arrow = coverage unknown or blocked by missing inputs.</span></div>
+            <div class="edge-legend-item"><span class="edge-line loop-edge"></span><span>Orange arrow = loop or repeated group route.</span></div>
+        </div>
+
+        <div class="summary-card">
+            <h2>Selected node / edge</h2>
+            <div id="selection-detail" class="node-detail">
+                <p class="empty-detail">Click a node or edge.</p>
+            </div>
+        </div>
+    </aside>
+</div>
+
+{{ graph.nodes_json|json_script:"graph-nodes-data" }}
+{{ graph.edges_json|json_script:"graph-edges-data" }}
+{{ route_coverage_lookup|json_script:"route-coverage-data" }}
+{{ routing_simulation_error|json_script:"routing-simulation-error-data" }}
+
+<script>
+    try {
+        const loadingBox = document.getElementById("graph-loading");
+
+        if (typeof vis === "undefined") {
+            loadingBox.innerHTML = `
+                <strong>Graph library failed to load.</strong><br>
+                The page could not load vis-network from the external CDN.
+            `;
+            throw new Error("vis-network library is not loaded");
+        }
+
+        const rawNodes = JSON.parse(document.getElementById("graph-nodes-data").textContent);
+        const rawEdges = JSON.parse(document.getElementById("graph-edges-data").textContent);
+        const routeCoverageLookup = JSON.parse(
+            document.getElementById("route-coverage-data").textContent || "{}"
+        );
+        const routingSimulationError = JSON.parse(
+            document.getElementById("routing-simulation-error-data").textContent || "null"
+        );
+
+        if (!Array.isArray(rawNodes) || !Array.isArray(rawEdges)) {
+            loadingBox.innerHTML = `
+                <strong>Invalid graph data.</strong><br>
+                Nodes or edges are not valid arrays.
+            `;
+            throw new Error("Invalid graph JSON data");
+        }
+
+        if (routingSimulationError) {
+            console.warn("Routing simulation overlay unavailable:", routingSimulationError);
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        function isQuestionNode(node) {
+            return !["loop", "external_variable", "unknown_target"].includes(node.type);
+        }
+
+        function getNodeSequenceIndex(node) {
+            const value = node.data?.sequence_index ?? node.data?.sequence ?? node.sequence_index ?? node.sequence;
+
+            if (value === null || value === undefined || value === "") {
+                return null;
+            }
+
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : null;
+        }
+
+        function buildQuestionSequenceMap(nodesList) {
+            const map = new Map();
+            let fallbackCounter = 1;
+            const questionNodes = nodesList.filter(isQuestionNode);
+
+            questionNodes.forEach((node) => {
+                const sequenceIndex = getNodeSequenceIndex(node);
+
+                if (sequenceIndex !== null) {
+                    map.set(node.id, sequenceIndex);
+                }
+            });
+
+            questionNodes.forEach((node) => {
+                if (!map.has(node.id)) {
+                    map.set(node.id, fallbackCounter);
+                }
+
+                fallbackCounter += 1;
+            });
+
+            return map;
+        }
+
+        const questionSequenceMap = buildQuestionSequenceMap(rawNodes);
+        const startQuestionNode = rawNodes.find(isQuestionNode) || null;
+        const startQuestionId = startQuestionNode ? startQuestionNode.id : null;
+        const rawNodeById = new Map(
+            rawNodes
+                .filter((node) => node && node.id !== null && node.id !== undefined)
+                .map((node) => [String(node.id), node])
+        );
+
+        function nodeColor(type, isStartNode) {
+            if (isStartNode) {
+                return {
+                    background: "#16a34a",
+                    border: "#166534",
+                    highlight: {background: "#86efac", border: "#14532d"}
+                };
+            }
+
+            if (type === "loop") {
+                return {
+                    background: "#f97316",
+                    border: "#c2410c",
+                    highlight: {background: "#fdba74", border: "#9a3412"}
+                };
+            }
+
+            if (type === "external_variable") {
+                return {
+                    background: "#7c3aed",
+                    border: "#5b21b6",
+                    highlight: {background: "#c4b5fd", border: "#4c1d95"}
+                };
+            }
+
+            if (type === "unknown_target") {
+                return {
+                    background: "#6b7280",
+                    border: "#374151",
+                    highlight: {background: "#d1d5db", border: "#111827"}
+                };
+            }
+
+            return {
+                background: "#60a5fa",
+                border: "#2563eb",
+                highlight: {background: "#bfdbfe", border: "#1d4ed8"}
+            };
+        }
+
+        function sourcePartsFromEdge(edge) {
+            const source = String(edge.source || "").trim();
+
+            if (!source) {
+                return [];
+            }
+
+            return source.split(",").map((item) => item.trim()).filter(Boolean);
+        }
+
+        function uniqueValues(values) {
+            const seen = new Set();
+            const result = [];
+
+            values.forEach((value) => {
+                const text = String(value || "").trim();
+
+                if (!text) {
+                    return;
+                }
+
+                const key = text.toLowerCase();
+
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    result.push(text);
+                }
+            });
+
+            return result;
+        }
+
+        function normalizeRouteKeyPart(value) {
+            return String(value || "").trim().toLowerCase().split(/\s+/).join(" ");
+        }
+
+        function makeRouteCoverageKey(source, target, conditionText) {
+            return [
+                normalizeRouteKeyPart(source),
+                normalizeRouteKeyPart(target),
+                normalizeRouteKeyPart(conditionText)
+            ].join("||");
+        }
+
+        function makeTargetConditionCoverageKey(target, conditionText) {
+            return [
+                normalizeRouteKeyPart(target),
+                normalizeRouteKeyPart(conditionText)
+            ].join("||");
+        }
+
+        function conditionTextFromEdge(edge) {
+            return edge.condition_text || edge.condition || edge.label || "";
+        }
+
+        function coverageForEdge(edge) {
+            if (!edge || edge.type !== "conditional") {
+                return null;
+            }
+
+            const conditionText = conditionTextFromEdge(edge);
+            const fullRouteKey = makeRouteCoverageKey(edge.source, edge.target, conditionText);
+            const targetConditionKey = makeTargetConditionCoverageKey(edge.target, conditionText);
+
+            if (routeCoverageLookup.by_full_route && routeCoverageLookup.by_full_route[fullRouteKey]) {
+                return routeCoverageLookup.by_full_route[fullRouteKey];
+            }
+
+            if (
+                routeCoverageLookup.by_target_condition &&
+                routeCoverageLookup.by_target_condition[targetConditionKey]
+            ) {
+                return routeCoverageLookup.by_target_condition[targetConditionKey];
+            }
+
+            // Backward compatibility with old flat lookup shape.
+            return routeCoverageLookup[fullRouteKey] || null;
+        }
+
+        function coverageStatusForEdge(edge) {
+            const coverage = coverageForEdge(edge);
+            return coverage ? (coverage.coverage_status || "unknown") : "unknown";
+        }
+
+        function coveragePill(status) {
+            if (status === "covered") {
+                return `<span class="coverage-pill coverage-covered">covered</span>`;
+            }
+
+            if (["not_covered", "target_edge_not_found", "no_target_edges"].includes(status)) {
+                return `<span class="coverage-pill coverage-not-covered">${escapeHtml(status)}</span>`;
+            }
+
+            if (status === "blocked_missing_inputs") {
+                return `<span class="coverage-pill coverage-warning">missing inputs</span>`;
+            }
+
+            return `<span class="coverage-pill coverage-unknown">${escapeHtml(status || "unknown")}</span>`;
+        }
+
+        function coverageColorForStatus(status) {
+            if (status === "covered") {
+                return {color: "#16a34a", highlight: "#15803d"};
+            }
+
+            if (["not_covered", "target_edge_not_found", "no_target_edges"].includes(status)) {
+                return {color: "#dc2626", highlight: "#991b1b"};
+            }
+
+            if (status === "blocked_missing_inputs") {
+                return {color: "#d97706", highlight: "#92400e"};
+            }
+
+            return {color: "#f59e0b", highlight: "#b45309"};
+        }
+
+        function coverageSuffix(status) {
+            if (status === "covered") {
+                return "✓";
+            }
+
+            if (["not_covered", "target_edge_not_found", "no_target_edges"].includes(status)) {
+                return "!";
+            }
+
+            return "?";
+        }
+
+        function shortConditionLabel(edge) {
+            const sources = sourcePartsFromEdge(edge);
+            return sources.length > 1 ? sources.join(" + ") : "condition";
+        }
+
+        function routeTypeLabel(type) {
+            if (type === "sequential") return "Normal next-question sequence";
+            if (type === "conditional") return "Conditional route";
+            if (type === "loop") return "Loop / repeated group route";
+            return type || "Unknown route";
+        }
+
+        function routeTypePill(type) {
+            if (type === "conditional") return `<span class="detail-pill pill-conditional">conditional</span>`;
+            if (type === "sequential") return `<span class="detail-pill pill-sequential">next</span>`;
+            if (type === "loop") return `<span class="detail-pill pill-loop">loop</span>`;
+            return `<span class="detail-pill">${escapeHtml(type || "unknown")}</span>`;
+        }
+
+        function routeMeaning(edge) {
+            const source = edge.source || "the source question";
+            const target = edge.target || "the target question";
+
+            if (edge.type === "conditional") {
+                return `${target} is reached only when the condition from ${source} is true.`;
+            }
+
+            if (edge.type === "sequential") {
+                return `After ${source}, the questionnaire normally continues to ${target}.`;
+            }
+
+            if (edge.type === "loop") {
+                return `This route belongs to a loop or repeated group involving ${source} and ${target}.`;
+            }
+
+            return `Route from ${source} to ${target}.`;
+        }
+
+        function buildRouteCard(edge, directionLabel) {
+            const source = edge.source || "-";
+            const target = edge.target || "-";
+            const condition = conditionTextFromEdge(edge);
+            const hasCondition = edge.type === "conditional" && condition;
+            const coverage = coverageForEdge(edge);
+            const coverageStatus = coverageStatusForEdge(edge);
+
+            return `
+                <div class="route-card">
+                    <div class="route-line">${escapeHtml(source)} → ${escapeHtml(target)}</div>
+                    <div class="detail-kv"><strong>${escapeHtml(directionLabel)}:</strong> ${routeTypePill(edge.type)}</div>
+                    ${edge.type === "conditional" ? `
+                        <div class="detail-kv"><strong>Coverage:</strong> ${coveragePill(coverageStatus)}</div>
+                        ${coverage && coverage.intent_label ? `
+                            <div class="detail-kv"><strong>Covered by intent:</strong> ${escapeHtml(coverage.intent_label)}</div>
+                        ` : `
+                            <div class="detail-kv empty-detail">No matching coverage intent found for this conditional route.</div>
+                        `}
+                    ` : ""}
+                    <div class="detail-kv"><strong>Meaning:</strong> ${escapeHtml(routeMeaning(edge))}</div>
+                    ${hasCondition ? `
+                        <div class="detail-kv"><strong>Condition:</strong><span class="condition-text">${escapeHtml(condition)}</span></div>
+                    ` : ""}
+                </div>
+            `;
+        }
+
+        function buildVisualEdge(edge) {
+            const isLoop = edge.type === "loop";
+            const isSequential = edge.type === "sequential";
+            const isConditional = edge.type === "conditional";
+
+            let color = "#374151";
+            let highlight = "#111827";
+            let label = edge.label || edge.type || "";
+            let width = 2;
+            let dashes = false;
+
+            const coverage = coverageForEdge(edge);
+            const coverageStatus = coverageStatusForEdge(edge);
+
+            if (isLoop) {
+                color = "#f97316";
+                highlight = "#ea580c";
+                label = "loop";
+            }
+
+            if (isSequential) {
+                color = "#9ca3af";
+                highlight = "#4b5563";
+                label = "next";
+                dashes = true;
+            }
+
+            if (isConditional) {
+                const coverageColor = coverageColorForStatus(coverageStatus);
+                color = coverageColor.color;
+                highlight = coverageColor.highlight;
+                label = `${shortConditionLabel(edge)} ${coverageSuffix(coverageStatus)}`;
+                width = 3;
+            }
+
+            return {
+                id: edge.id,
+                from: edge.source,
+                to: edge.target,
+                label: label,
+                title: conditionTextFromEdge(edge) || edge.type || "",
+                arrows: "to",
+                color: {color: color, highlight: highlight},
+                width: width,
+                font: {
+                    size: isSequential ? 11 : 12,
+                    align: "middle",
+                    background: "#ffffff"
+                },
+                dashes: dashes,
+                smooth: {enabled: true, type: "dynamic"},
+                metadata: {
+                    ...edge,
+                    coverage: coverage,
+                    coverage_status: coverageStatus
+                }
+            };
+        }
+
+        function selectedEdgeTypes() {
+            const showSequential = document.getElementById("toggle-sequential").checked;
+            const showConditional = document.getElementById("toggle-conditional").checked;
+            const showLoop = document.getElementById("toggle-loop").checked;
+            const allowed = new Set();
+
+            if (showSequential) allowed.add("sequential");
+            if (showConditional) allowed.add("conditional");
+            if (showLoop) allowed.add("loop");
+
+            return allowed;
+        }
+
+        function filteredVisualEdges() {
+            const allowed = selectedEdgeTypes();
+            return rawEdges.filter((edge) => allowed.has(edge.type)).map((edge) => buildVisualEdge(edge));
+        }
+
+        function rawNodeForId(nodeId) {
+            return rawNodeById.get(String(nodeId)) || null;
+        }
+
+        function enrichedRoutesForNode(nodeId, fieldName) {
+            const rawNode = rawNodeForId(nodeId);
+
+            if (!rawNode || !Array.isArray(rawNode[fieldName])) {
+                return null;
+            }
+
+            return rawNode[fieldName];
+        }
+
+        function enrichedPrerequisitesForNode(nodeId) {
+            const rawNode = rawNodeForId(nodeId);
+
+            if (!rawNode || !Array.isArray(rawNode.prerequisite_questions)) {
+                return null;
+            }
+
+            return rawNode.prerequisite_questions;
+        }
+
+        function incomingEdgesForNode(nodeId) {
+            const enrichedIncomingRoutes = enrichedRoutesForNode(nodeId, "incoming_routes");
+
+            if (enrichedIncomingRoutes !== null) {
+                return enrichedIncomingRoutes;
+            }
+
+            return rawEdges.filter((edge) => String(edge.target) === String(nodeId));
+        }
+
+        function outgoingEdgesForNode(nodeId) {
+            const enrichedOutgoingRoutes = enrichedRoutesForNode(nodeId, "outgoing_routes");
+
+            if (enrichedOutgoingRoutes !== null) {
+                return enrichedOutgoingRoutes;
+            }
+
+            return rawEdges.filter((edge) => {
+                const parts = sourcePartsFromEdge(edge);
+                return String(edge.source) === String(nodeId) || parts.includes(String(nodeId));
+            });
+        }
+
+        function prerequisiteQuestionsForNode(nodeId) {
+            const enrichedPrerequisites = enrichedPrerequisitesForNode(nodeId);
+
+            if (enrichedPrerequisites !== null) {
+                return enrichedPrerequisites;
+            }
+
+            const prerequisites = [];
+
+            incomingEdgesForNode(nodeId).forEach((edge) => {
+                sourcePartsFromEdge(edge).forEach((part) => {
+                    prerequisites.push({
+                        id: part,
+                        exists_in_graph: resolveExistingNodeId(part) !== null,
+                        type: resolveExistingNodeId(part) !== null ? "question" : "external_variable",
+                        label: part
+                    });
+                });
+            });
+
+            const seen = new Set();
+            const result = [];
+
+            prerequisites.forEach((item) => {
+                const key = String(item.id || "").trim().toLowerCase();
+
+                if (!key || seen.has(key)) {
+                    return;
+                }
+
+                seen.add(key);
+                result.push(item);
+            });
+
+            return result;
+        }
+
+        function prerequisiteId(prerequisite) {
+            if (typeof prerequisite === "string") {
+                return prerequisite;
+            }
+
+            return prerequisite?.id || prerequisite?.label || "";
+        }
+
+        function renderPrerequisites(prerequisites) {
+            if (!prerequisites.length) {
+                return `<p class="empty-detail">No prerequisite questions detected.</p>`;
+            }
+
+            return `
+                <ul class="read-list">
+                    ${prerequisites.map((item) => {
+                        if (typeof item === "string") {
+                            return `<li>${escapeHtml(item)}</li>`;
+                        }
+
+                        const label = item.label || item.id || "-";
+                        const externalText = item.exists_in_graph === false
+                            ? ` <span class="coverage-pill coverage-warning">external</span>`
+                            : ` <span class="coverage-pill coverage-covered">in graph</span>`;
+
+                        return `<li>${escapeHtml(label)}${externalText}</li>`;
+                    }).join("")}
+                </ul>
+            `;
+        }
+
+        function renderRoutes(edgesList, directionLabel, emptyText) {
+            if (!edgesList.length) {
+                return `<p class="empty-detail">${escapeHtml(emptyText)}</p>`;
+            }
+
+            return edgesList.map((edge) => buildRouteCard(edge, directionLabel)).join("");
+        }
+
+        function renderNodeDetail(node) {
+            const metadata = node.metadata || {};
+            const nodeId = metadata.id || node.id;
+            const sequenceNumber = metadata.visual_sequence_number;
+            const isStart = metadata.is_start_node;
+            const questionType = metadata.data?.question_type || metadata.type || "question";
+            const title = metadata.data?.title || metadata.data?.label || nodeId;
+            const incoming = incomingEdgesForNode(nodeId);
+            const outgoing = outgoingEdgesForNode(nodeId);
+            const conditionalIncoming = incoming.filter((edge) => edge.type === "conditional");
+            const prerequisites = prerequisiteQuestionsForNode(nodeId);
+            const dependencySummary = metadata.dependency_summary || {};
+            const hasExternalPrerequisites = Boolean(dependencySummary.has_external_prerequisites);
+            const headerNumber = sequenceNumber ? `${sequenceNumber} ` : "";
+
+            return `
+                <h3 class="detail-title">Selected question: ${escapeHtml(headerNumber + nodeId)}</h3>
+                <div class="detail-subtitle">
+                    ${isStart ? `<span class="detail-pill pill-start">first in module</span>` : ""}
+                    <span class="detail-pill pill-question">${escapeHtml(questionType)}</span>
+                </div>
+                <div class="detail-section">
+                    <h3>Question information</h3>
+                    <p class="detail-kv"><strong>Question name:</strong> ${escapeHtml(nodeId)}</p>
+                    <p class="detail-kv"><strong>Displayed title/label:</strong> ${escapeHtml(title)}</p>
+                    <p class="detail-kv"><strong>Sequence number:</strong> ${escapeHtml(sequenceNumber || "-")}</p>
+                </div>
+                <div class="detail-section">
+                    <h3>How this question is reached</h3>
+                    ${conditionalIncoming.length ? `
+                        <p class="detail-kv">This question has conditional incoming route(s). It is only reached when the related condition is true.</p>
+                    ` : incoming.length ? `
+                        <p class="detail-kv">This question is reached through normal sequence or loop route(s).</p>
+                    ` : isStart ? `
+                        <p class="detail-kv">This is the first question detected inside this module.</p>
+                        <p class="detail-kv">It may still require external prerequisite conditions before the respondent can enter this module.</p>
+                    ` : `
+                        <p class="empty-detail">No incoming route was detected for this node.</p>
+                    `}
+                    ${renderRoutes(incoming, "Incoming route", "No incoming routes.")}
+                </div>
+                <div class="detail-section">
+                    <h3>Prerequisite questions</h3>
+                    ${hasExternalPrerequisites ? `
+                        <p class="detail-kv">One or more prerequisite variables come from outside this module graph.</p>
+                    ` : ""}
+                    ${renderPrerequisites(prerequisites)}
+                </div>
+                <div class="detail-section">
+                    <h3>Outgoing routes</h3>
+                    ${renderRoutes(outgoing, "Outgoing route", "No outgoing routes.")}
+                </div>
+                <details class="developer-details">
+                    <summary>Show raw node JSON</summary>
+                    <pre class="raw-json">${escapeHtml(JSON.stringify(metadata, null, 2))}</pre>
+                </details>
+            `;
+        }
+
+        function renderEdgeDetail(edge) {
+            const metadata = edge.metadata || {};
+            const source = metadata.source || "-";
+            const target = metadata.target || "-";
+            const condition = conditionTextFromEdge(metadata);
+            const prerequisites = sourcePartsFromEdge(metadata);
+            const coverageStatus = metadata.coverage_status || coverageStatusForEdge(metadata);
+            const coverage = metadata.coverage || coverageForEdge(metadata);
+
+            return `
+                <h3 class="detail-title">Selected route</h3>
+                <div class="detail-subtitle">${routeTypePill(metadata.type)}</div>
+                <div class="detail-section">
+                    <h3>Route</h3>
+                    <p class="detail-kv"><strong>From:</strong> ${escapeHtml(source)}</p>
+                    <p class="detail-kv"><strong>To:</strong> ${escapeHtml(target)}</p>
+                    <p class="detail-kv"><strong>Type:</strong> ${escapeHtml(routeTypeLabel(metadata.type))}</p>
+                </div>
+                <div class="detail-section">
+                    <h3>Meaning</h3>
+                    <p class="detail-kv">${escapeHtml(routeMeaning(metadata))}</p>
+                </div>
+                ${metadata.type === "conditional" ? `
+                    <div class="detail-section">
+                        <h3>Coverage</h3>
+                        <p class="detail-kv">${coveragePill(coverageStatus)}</p>
+                        ${coverage && coverage.intent_label ? `
+                            <p class="detail-kv"><strong>Covered by intent:</strong> ${escapeHtml(coverage.intent_label)}</p>
+                        ` : `
+                            <p class="empty-detail">No matching coverage intent was found for this conditional route.</p>
+                        `}
+                    </div>
+                    <div class="detail-section">
+                        <h3>Condition</h3>
+                        ${condition ? `<span class="condition-text">${escapeHtml(condition)}</span>` : `<p class="empty-detail">No condition text available.</p>`}
+                    </div>
+                    <div class="detail-section">
+                        <h3>Prerequisite questions</h3>
+                        ${renderPrerequisites(prerequisites)}
+                    </div>
+                ` : ""}
+                <details class="developer-details">
+                    <summary>Show raw edge JSON</summary>
+                    <pre class="raw-json">${escapeHtml(JSON.stringify(metadata, null, 2))}</pre>
+                </details>
+            `;
+        }
+
+
+        function cloneVisualValue(value) {
+            if (value === null || value === undefined) {
+                return value;
+            }
+
+            return JSON.parse(JSON.stringify(value));
+        }
+
+        function normalizedNodeLookupKey(value) {
+            return String(value || "").trim().toLowerCase();
+        }
+
+        function buildNodeIdLookup(nodesList) {
+            const lookup = new Map();
+
+            nodesList.forEach((node) => {
+                lookup.set(normalizedNodeLookupKey(node.id), node.id);
+            });
+
+            return lookup;
+        }
+
+        const nodeIdLookup = buildNodeIdLookup(rawNodes);
+
+        function resolveExistingNodeId(value) {
+            const directValue = String(value || "").trim();
+
+            if (!directValue) {
+                return null;
+            }
+
+            if (nodeIdLookup.has(normalizedNodeLookupKey(directValue))) {
+                return nodeIdLookup.get(normalizedNodeLookupKey(directValue));
+            }
+
+            return null;
+        }
+
+        function sourceNodeIdsForEdge(edge) {
+            const nodeIds = [];
+            const sourceParts = Array.isArray(edge?.source_parts)
+                ? edge.source_parts
+                : sourcePartsFromEdge(edge);
+
+            sourceParts.forEach((sourcePart) => {
+                const nodeId = resolveExistingNodeId(sourcePart);
+
+                if (nodeId) {
+                    nodeIds.push(nodeId);
+                }
+            });
+
+            return uniqueValues(nodeIds);
+        }
+
+        function edgeIdValue(edge) {
+            return String(edge?.id || edge?.metadata?.id || "");
+        }
+
+        const nodes = new vis.DataSet(
+            rawNodes.map((node) => {
+                const title = node.data?.title || node.id;
+                const questionType = node.data?.question_type || node.type;
+                const isQuestion = isQuestionNode(node);
+                const isStartNode = node.id === startQuestionId;
+                const sequenceNumber = questionSequenceMap.get(node.id);
+                let label = node.data?.label || node.id;
+                let shape = "circle";
+                let size = 34;
+                let fontSize = 13;
+
+                if (node.type === "loop") {
+                    label = node.data?.label || node.id;
+                    shape = "box";
+                    size = 28;
+                    fontSize = 15;
+                } else if (isQuestion) {
+                    label = sequenceNumber !== undefined && sequenceNumber !== null
+                        ? `${sequenceNumber}\n${node.id}`
+                        : node.id;
+                    shape = "circle";
+                    size = isStartNode ? 40 : 36;
+                    fontSize = 13;
+                } else {
+                    label = node.data?.label || node.id;
+                    shape = "dot";
+                    size = 24;
+                    fontSize = 14;
+                }
+
+                const nodeTitlePrefix = isStartNode ? "FIRST QUESTION IN THIS MODULE\n" : "";
+
+                return {
+                    id: node.id,
+                    label: label,
+                    title: `${nodeTitlePrefix}${node.id}\n${title}\nType: ${questionType}`,
+                    shape: shape,
+                    size: size,
+                    color: nodeColor(node.type, isStartNode),
+                    borderWidth: isStartNode ? 4 : 2,
+                    font: {
+                        color: "#111827",
+                        size: fontSize,
+                        face: "Arial",
+                        bold: {
+                            color: "#111827",
+                            size: fontSize + 1,
+                            face: "Arial"
+                        },
+                        vadjust: 0,
+                        multi: true
+                    },
+                    margin: node.type === "loop" ? 8 : 10,
+                    metadata: {
+                        ...node,
+                        visual_sequence_number: sequenceNumber || null,
+                        is_start_node: isStartNode
+                    }
+                };
+            })
+        );
+
+        const originalNodeStyles = new Map();
+
+        nodes.forEach((node) => {
+            originalNodeStyles.set(node.id, {
+                color: cloneVisualValue(node.color),
+                borderWidth: node.borderWidth,
+                font: cloneVisualValue(node.font),
+                size: node.size,
+                shadow: cloneVisualValue(node.shadow || false)
+            });
+        });
+
+        const edges = new vis.DataSet(filteredVisualEdges());
+        const container = document.getElementById("graph");
+
+        function originalNodeStyleUpdate(nodeId) {
+            const style = originalNodeStyles.get(nodeId) || {};
+
+            return {
+                id: nodeId,
+                color: cloneVisualValue(style.color),
+                borderWidth: style.borderWidth || 2,
+                font: cloneVisualValue(style.font),
+                size: style.size,
+                shadow: cloneVisualValue(style.shadow || false)
+            };
+        }
+
+        function dimmedNodeStyleUpdate(nodeId) {
+            const style = originalNodeStyles.get(nodeId) || {};
+            const font = cloneVisualValue(style.font || {});
+
+            font.color = "#9ca3af";
+
+            if (font.bold) {
+                font.bold.color = "#9ca3af";
+            }
+
+            return {
+                id: nodeId,
+                color: {
+                    background: "#f3f4f6",
+                    border: "#d1d5db",
+                    highlight: {background: "#e5e7eb", border: "#9ca3af"}
+                },
+                borderWidth: 1,
+                font: font,
+                size: style.size,
+                shadow: false
+            };
+        }
+
+        function highlightedNodeStyleUpdate(nodeId, role) {
+            const base = originalNodeStyleUpdate(nodeId);
+            const baseSize = base.size || 34;
+
+            return {
+                ...base,
+                borderWidth: role === "selected" ? 6 : 5,
+                size: role === "selected" ? baseSize + 5 : baseSize + 3,
+                shadow: {
+                    enabled: true,
+                    size: role === "selected" ? 18 : 12,
+                    x: 0,
+                    y: 0
+                }
+            };
+        }
+
+        function resetNodeStyles() {
+            nodes.update(nodes.getIds().map((nodeId) => originalNodeStyleUpdate(nodeId)));
+        }
+
+        function dimmedEdgeStyle(edge) {
+            const font = cloneVisualValue(edge.font || {});
+            font.color = "#9ca3af";
+
+            return {
+                ...edge,
+                color: {color: "#d1d5db", highlight: "#9ca3af"},
+                width: 1,
+                font: font
+            };
+        }
+
+        function highlightedIncomingEdgeStyle(edge, role) {
+            const font = cloneVisualValue(edge.font || {});
+            font.color = "#111827";
+            font.background = "#ffffff";
+
+            return {
+                ...edge,
+                width: role === "conditional" ? 6 : 4,
+                font: font
+            };
+        }
+
+        function resetGraphHighlight() {
+            resetNodeStyles();
+            edges.clear();
+            edges.add(filteredVisualEdges());
+            network.redraw();
+        }
+
+        function highlightDependenciesForNode(nodeId) {
+            const selectedNodeId = String(nodeId);
+            const incoming = incomingEdgesForNode(selectedNodeId);
+            const prerequisiteNodeIds = new Set();
+            const conditionalIncomingEdgeIds = new Set();
+            const otherIncomingEdgeIds = new Set();
+
+            incoming.forEach((edge) => {
+                sourceNodeIdsForEdge(edge).forEach((sourceNodeId) => {
+                    if (sourceNodeId !== selectedNodeId) {
+                        prerequisiteNodeIds.add(sourceNodeId);
+                    }
+                });
+
+                if (edge.type === "conditional") {
+                    conditionalIncomingEdgeIds.add(edgeIdValue(edge));
+                } else {
+                    otherIncomingEdgeIds.add(edgeIdValue(edge));
+                }
+            });
+
+            const nodeUpdates = nodes.getIds().map((currentNodeId) => {
+                const currentId = String(currentNodeId);
+
+                if (currentId === selectedNodeId) {
+                    return highlightedNodeStyleUpdate(currentNodeId, "selected");
+                }
+
+                if (prerequisiteNodeIds.has(currentId)) {
+                    return highlightedNodeStyleUpdate(currentNodeId, "prerequisite");
+                }
+
+                return dimmedNodeStyleUpdate(currentNodeId);
+            });
+
+            const edgeUpdates = filteredVisualEdges().map((visualEdge) => {
+                const currentEdgeId = edgeIdValue(visualEdge.metadata || visualEdge);
+
+                if (conditionalIncomingEdgeIds.has(currentEdgeId)) {
+                    return highlightedIncomingEdgeStyle(visualEdge, "conditional");
+                }
+
+                if (otherIncomingEdgeIds.has(currentEdgeId)) {
+                    return highlightedIncomingEdgeStyle(visualEdge, "incoming");
+                }
+
+                return dimmedEdgeStyle(visualEdge);
+            });
+
+            nodes.update(nodeUpdates);
+            edges.clear();
+            edges.add(edgeUpdates);
+            network.redraw();
+        }
+
+        if (loadingBox) {
+            loadingBox.remove();
+        }
+
+        const network = new vis.Network(
+            container,
+            {nodes: nodes, edges: edges},
+            {
+                autoResize: true,
+                layout: {improvedLayout: true},
+                physics: {
+                    enabled: true,
+                    solver: "forceAtlas2Based",
+                    forceAtlas2Based: {
+                        gravitationalConstant: -50,
+                        centralGravity: 0.01,
+                        springLength: 150,
+                        springConstant: 0.06
+                    },
+                    stabilization: {
+                        enabled: true,
+                        iterations: 140,
+                        updateInterval: 20
+                    }
+                },
+                interaction: {
+                    hover: true,
+                    tooltipDelay: 100,
+                    navigationButtons: true,
+                    keyboard: true,
+                    dragNodes: true,
+                    dragView: true,
+                    zoomView: true
+                },
+                nodes: {borderWidth: 2},
+                edges: {
+                    width: 2,
+                    smooth: {enabled: true, type: "dynamic"}
+                }
+            }
+        );
+
+        const detailBox = document.getElementById("selection-detail");
+
+        network.on("click", function (params) {
+            if (params.nodes.length > 0) {
+                const selectedNodeId = params.nodes[0];
+                const node = nodes.get(selectedNodeId);
+                highlightDependenciesForNode(selectedNodeId);
+                detailBox.innerHTML = renderNodeDetail(node);
+                return;
+            }
+
+            if (params.edges.length > 0) {
+                resetGraphHighlight();
+                const edge = edges.get(params.edges[0]);
+                detailBox.innerHTML = renderEdgeDetail(edge);
+                return;
+            }
+
+            resetGraphHighlight();
+            detailBox.innerHTML = `<p class="empty-detail">Click a node or edge.</p>`;
+        });
+
+        function fitGraph(duration = 400) {
+            network.fit({
+                animation: {
+                    duration: duration,
+                    easingFunction: "easeInOutQuad"
+                }
+            });
+        }
+
+        function refreshEdges() {
+            resetNodeStyles();
+            edges.clear();
+            edges.add(filteredVisualEdges());
+            network.redraw();
+            fitGraph(400);
+        }
+
+        document.getElementById("toggle-sequential").addEventListener("change", refreshEdges);
+        document.getElementById("toggle-conditional").addEventListener("change", refreshEdges);
+        document.getElementById("toggle-loop").addEventListener("change", refreshEdges);
+
+        function setEdgeVisibilityPreset(showSequential, showConditional, showLoop) {
+            document.getElementById("toggle-sequential").checked = showSequential;
+            document.getElementById("toggle-conditional").checked = showConditional;
+            document.getElementById("toggle-loop").checked = showLoop;
+            refreshEdges();
+        }
+
+        function resetSelectionDetail() {
+            detailBox.innerHTML = `<p class="empty-detail">Click a node or edge.</p>`;
+        }
+
+        document.getElementById("fit-graph-button").addEventListener("click", function () {
+            fitGraph(400);
+        });
+
+        document.getElementById("show-all-button").addEventListener("click", function () {
+            setEdgeVisibilityPreset(true, true, true);
+            resetSelectionDetail();
+        });
+
+        document.getElementById("show-conditional-button").addEventListener("click", function () {
+            setEdgeVisibilityPreset(false, true, false);
+            resetSelectionDetail();
+        });
+
+        document.getElementById("show-sequential-button").addEventListener("click", function () {
+            setEdgeVisibilityPreset(true, false, false);
+            resetSelectionDetail();
+        });
+
+        document.getElementById("reset-highlight-button").addEventListener("click", function () {
+            resetGraphHighlight();
+            resetSelectionDetail();
+            fitGraph(400);
+        });
+
+        network.once("stabilizationIterationsDone", function () {
+            network.setOptions({physics: false});
+            fitGraph(600);
+        });
+
+        setTimeout(function () {
+            fitGraph(600);
+        }, 800);
+
+        setTimeout(function () {
+            network.redraw();
+            fitGraph(0);
+        }, 1500);
+
+    } catch (error) {
+        console.error("Graph rendering failed:", error);
+
+        const graphBox = document.getElementById("graph");
+
+        if (graphBox) {
+            graphBox.innerHTML = `
+                <div class="graph-error">
+                    <strong>Graph rendering failed.</strong><br>
+                    ${error.message}
+                </div>
+            `;
+        }
+    }
+</script>
+
+</body>
+</html>

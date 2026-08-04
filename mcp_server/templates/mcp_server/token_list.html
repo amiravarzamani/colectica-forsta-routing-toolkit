@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MCP Access Tokens</title>
+    <style>
+        :root {
+            --bg: #f3f4f6;
+            --panel: #ffffff;
+            --text: #111827;
+            --muted: #6b7280;
+            --border: #e5e7eb;
+            --header: #f9fafb;
+            --dark: #1f2937;
+            --blue: #2563eb;
+            --green: #047857;
+            --red: #991b1b;
+            --shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .page {
+            max-width: 1280px;
+            margin: 32px auto;
+            padding: 0 18px;
+        }
+
+        .container {
+            background: var(--panel);
+            padding: 28px;
+            border-radius: 18px;
+            box-shadow: var(--shadow);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 18px;
+            margin-bottom: 22px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 32px;
+            letter-spacing: -0.02em;
+        }
+
+        .header p {
+            margin: 10px 0 0 0;
+            color: var(--muted);
+            font-size: 15px;
+        }
+
+        .back-link {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .generate-panel {
+            margin-bottom: 22px;
+            padding: 18px 20px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: var(--header);
+        }
+
+        .generate-panel h2 {
+            margin: 0 0 12px 0;
+            font-size: 18px;
+        }
+
+        .generate-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .generate-controls input[type="text"] {
+            padding: 8px 10px;
+            border-radius: 9px;
+            border: 1px solid var(--border);
+            font-size: 14px;
+            min-width: 260px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+
+        th, td {
+            border-bottom: 1px solid var(--border);
+            padding: 16px 18px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            background: var(--header);
+            color: #374151;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        tr:hover td {
+            background: #fafafa;
+        }
+
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 34px;
+            padding: 8px 12px;
+            background: var(--dark);
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 9px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+
+        .button-small {
+            min-height: 30px;
+            padding: 7px 10px;
+            font-size: 13px;
+        }
+
+        .revoke-button {
+            background: var(--red);
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .status-active {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-revoked {
+            background: #f3f4f6;
+            color: #4b5563;
+        }
+
+        .messages {
+            margin-top: 16px;
+        }
+
+        .message {
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: #ecfdf5;
+            color: #065f46;
+            margin-bottom: 8px;
+        }
+
+        .message-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .url-cell {
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+            max-width: 320px;
+        }
+
+        .muted {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .copy-button {
+            margin-top: 6px;
+            background: var(--blue);
+        }
+
+        .empty {
+            margin-top: 24px;
+            color: #666666;
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>MCP Access Tokens</h1>
+                <p>Each token is a colleague's own connector URL for the read-only questionnaire MCP server. Revoking one doesn't affect anyone else's.</p>
+                <a class="back-link" href="{% url 'flowise_questionnaire:module_list' %}">&larr; Back to modules</a>
+            </div>
+        </div>
+
+        {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                    <div class="message{% if message.tags == 'error' %} message-error{% endif %}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="generate-panel">
+            <h2>Generate a new token</h2>
+            <form method="post" action="{% url 'mcp_server:token_generate' %}" class="generate-controls">
+                {% csrf_token %}
+                <input type="text" name="label" placeholder="Who is this for? e.g. Jane Doe" required>
+                <button type="submit" class="button">Generate token</button>
+            </form>
+        </div>
+
+        {% if tokens %}
+            <table>
+                <thead>
+                <tr>
+                    <th>Label</th>
+                    <th>Connector URL</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Last used</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for token in tokens %}
+                    <tr>
+                        <td data-label="Label">{{ token.label }}</td>
+                        <td data-label="Connector URL" class="url-cell">
+                            {% if token.is_active %}
+                                <div id="url-{{ token.id }}">{{ token.connector_url }}</div>
+                                <button type="button" class="button button-small copy-button"
+                                        onclick="copyUrl('{{ token.id }}')">
+                                    Copy
+                                </button>
+                            {% else %}
+                                <span class="muted">(revoked)</span>
+                            {% endif %}
+                        </td>
+                        <td data-label="Status">
+                            {% if token.is_active %}
+                                <span class="status status-active">Active</span>
+                            {% else %}
+                                <span class="status status-revoked">Revoked</span>
+                            {% endif %}
+                        </td>
+                        <td data-label="Created">
+                            {{ token.created_at }}
+                            {% if token.created_by %}
+                                <div class="muted">by {{ token.created_by.username }}</div>
+                            {% endif %}
+                        </td>
+                        <td data-label="Last used">{{ token.last_used_at|default:"Never" }}</td>
+                        <td data-label="Actions">
+                            {% if token.is_active %}
+                                <form method="post" action="{% url 'mcp_server:token_revoke' token.id %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="button button-small revoke-button"
+                                            onclick="return confirm('Revoke access for {{ token.label }}?');">
+                                        Revoke
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="empty">No tokens generated yet.</div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    function copyUrl(tokenId) {
+        const text = document.getElementById('url-' + tokenId).textContent;
+        navigator.clipboard.writeText(text);
+    }
+</script>
+</body>
+</html>

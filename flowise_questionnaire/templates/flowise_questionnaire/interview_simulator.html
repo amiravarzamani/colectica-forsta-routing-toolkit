@@ -1,0 +1,976 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Interview simulator - {{ module.name }}</title>
+
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: #f3f4f6;
+        }
+
+        .topbar {
+            height: 64px;
+            box-sizing: border-box;
+            background: #111827;
+            color: #ffffff;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .topbar h1 {
+            margin: 0;
+            font-size: 20px;
+        }
+
+        .topbar a,
+        .topbar button {
+            color: #ffffff;
+            text-decoration: none;
+            background: #374151;
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-left: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 460px minmax(0, 1fr);
+            height: calc(100vh - 64px);
+            min-height: 0;
+        }
+
+        .simulator-panel {
+            background: #ffffff;
+            border-right: 1px solid #e5e7eb;
+            padding: 16px;
+            box-sizing: border-box;
+            overflow: auto;
+        }
+
+        .graph-panel {
+            position: relative;
+            min-width: 0;
+            background: #ffffff;
+        }
+
+        #graph {
+            width: 100%;
+            height: calc(100vh - 64px);
+        }
+
+        .card {
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            background: #f9fafb;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .card h2 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #111827;
+        }
+
+        .status-row {
+            font-size: 13px;
+            color: #374151;
+            line-height: 1.5;
+        }
+
+        .assistant-message {
+            white-space: pre-wrap;
+            line-height: 1.45;
+            color: #111827;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            min-height: 120px;
+        }
+
+        .answer-input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 15px;
+            margin-top: 8px;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .button {
+            padding: 9px 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: #2563eb;
+            color: white;
+            font-size: 14px;
+        }
+
+        .button.secondary {
+            background: #374151;
+        }
+
+        .button.danger {
+            background: #dc2626;
+        }
+
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .error-box {
+            display: none;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+
+        .validation-box {
+            display: none;
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            color: #9a3412;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+
+        .debug-json {
+            white-space: pre-wrap;
+            font-size: 12px;
+            background: #111827;
+            color: #e5e7eb;
+            padding: 10px;
+            border-radius: 8px;
+            max-height: 240px;
+            overflow: auto;
+        }
+
+        .graph-overlay {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 5;
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 13px;
+            color: #111827;
+            max-width: 420px;
+        }
+
+        .legend-row {
+            margin-top: 6px;
+            line-height: 1.7;
+        }
+
+        .legend-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 4px;
+            vertical-align: middle;
+        }
+
+        .legend-current {
+            background: #22c55e;
+            border: 1px solid #166534;
+        }
+
+        .legend-traversed {
+            background: #ddd6fe;
+            border: 1px solid #7c3aed;
+        }
+
+        .legend-previous {
+            background: #fef3c7;
+            border: 1px solid #d97706;
+        }
+
+        .legend-rejected {
+            background: #fecaca;
+            border: 1px solid #dc2626;
+        }
+
+        .empty-detail {
+            color: #6b7280;
+            font-size: 13px;
+        }
+
+        .busy-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(17, 24, 39, 0.45);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .busy-overlay.visible {
+            display: flex;
+        }
+
+        .busy-box {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 18px 22px;
+            min-width: 220px;
+            box-shadow: 0 20px 35px rgba(0, 0, 0, 0.25);
+            text-align: center;
+            color: #111827;
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .busy-spinner {
+            width: 34px;
+            height: 34px;
+            border: 4px solid #e5e7eb;
+            border-top-color: #2563eb;
+            border-radius: 50%;
+            margin: 0 auto 12px auto;
+            animation: busy-spin 0.8s linear infinite;
+        }
+
+        @keyframes busy-spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        body.busy .button,
+        body.busy .answer-input {
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+<div id="busy-overlay" class="busy-overlay">
+    <div class="busy-box">
+        <div class="busy-spinner"></div>
+        <div id="busy-message">Working...</div>
+    </div>
+</div>
+<div class="topbar">
+    <h1>
+        Interview simulator:
+        {{ module.name }}{% if module.version %} {{ module.version }}{% endif %}
+    </h1>
+    <div>
+        <a href="{% url 'flowise_questionnaire:module_detail' module.id %}">Back to module</a>
+        <a href="{% url 'flowise_questionnaire:module_graph' module.id %}">Graph page</a>
+        <a href="{% url 'flowise_questionnaire:module_list' %}">Modules</a>
+    </div>
+</div>
+
+<div class="layout">
+    <section class="simulator-panel">
+        <div class="card">
+            <h2>Session</h2>
+            <div class="status-row">
+                <strong>Session ID:</strong>
+                <span id="session-id">Not started</span>
+            </div>
+            <div class="status-row">
+                <strong>Status:</strong>
+                <span id="session-status">-</span>
+            </div>
+            <div class="status-row">
+                <strong>Current question:</strong>
+                <span id="current-question">-</span>
+            </div>
+
+            <div class="button-row">
+                <button id="start-button" class="button" type="button">Start simulator</button>
+                <button id="reset-button" class="button secondary" type="button" disabled>Restart</button>
+                <button id="abandon-button" class="button danger" type="button" disabled>Abandon</button>
+            </div>
+
+            <div id="error-box" class="error-box"></div>
+        </div>
+
+        <div class="card">
+            <h2>Interview question</h2>
+            <div id="assistant-message" class="assistant-message">
+                Click “Start simulator” to begin.
+            </div>
+
+            <input
+                id="answer-input"
+                class="answer-input"
+                type="text"
+                placeholder="Answer using letters, for example: A or A, C"
+                disabled
+            >
+
+            <div class="button-row">
+                <button id="submit-answer-button" class="button" type="button" disabled>
+                    Submit answer
+                </button>
+            </div>
+
+            <div id="validation-box" class="validation-box"></div>
+        </div>
+
+        <div class="card">
+            <h2>Designer debug panel</h2>
+            <div class="status-row">
+                <strong>Variable:</strong>
+                <span id="debug-variable">-</span>
+            </div>
+            <div class="status-row">
+                <strong>Routing reason:</strong>
+                <span id="debug-routing-reason">-</span>
+            </div>
+
+            <details style="margin-top: 10px;">
+                <summary>Raw debug JSON</summary>
+                <pre id="debug-json" class="debug-json">{}</pre>
+            </details>
+        </div>
+    </section>
+
+    <section class="graph-panel">
+        <div class="graph-overlay">
+            <strong>Graph sync</strong><br>
+            Active node: <span id="graph-active-node">-</span><br>
+            Previous node: <span id="graph-previous-node">-</span>
+            <div class="legend-row">
+                <span class="legend-dot legend-current"></span>Current
+                <span class="legend-dot legend-traversed" style="margin-left:8px;"></span>Traversed
+                <span class="legend-dot legend-previous" style="margin-left:8px;"></span>Previous
+                <span class="legend-dot legend-rejected" style="margin-left:8px;"></span>Rejected
+            </div>
+        </div>
+        <div id="graph"></div>
+    </section>
+</div>
+
+{{ graph_nodes_json|json_script:"graph-nodes-data" }}
+{{ graph_edges_json|json_script:"graph-edges-data" }}
+
+<script>
+    const MODULE_ID = "{{ module.id }}";
+
+    const START_URL = "{% url 'flowise_questionnaire:interview_simulator_start' module.id %}";
+
+    const rawNodes = JSON.parse(document.getElementById("graph-nodes-data").textContent || "[]");
+    const rawEdges = JSON.parse(document.getElementById("graph-edges-data").textContent || "[]");
+
+    let currentSessionId = null;
+    let network = null;
+    let nodes = null;
+    let edges = null;
+
+    let isBusy = false;
+
+    function setBusy(enabled, message = "Working...") {
+        isBusy = enabled;
+
+        const overlay = document.getElementById("busy-overlay");
+        const messageBox = document.getElementById("busy-message");
+
+        if (messageBox) {
+            messageBox.textContent = message;
+        }
+
+        if (overlay) {
+            overlay.classList.toggle("visible", enabled);
+        }
+
+        document.body.classList.toggle("busy", enabled);
+
+        const answerInput = document.getElementById("answer-input");
+        const submitButton = document.getElementById("submit-answer-button");
+        const startButton = document.getElementById("start-button");
+        const resetButton = document.getElementById("reset-button");
+        const abandonButton = document.getElementById("abandon-button");
+
+        if (answerInput) {
+            answerInput.disabled = enabled || !currentSessionId;
+        }
+
+        if (submitButton) {
+            submitButton.disabled = enabled || !currentSessionId;
+        }
+
+        if (startButton) {
+            startButton.disabled = enabled;
+        }
+
+        if (resetButton) {
+            resetButton.disabled = enabled || !currentSessionId;
+        }
+
+        if (abandonButton) {
+            abandonButton.disabled = enabled || !currentSessionId;
+        }
+    }
+
+    let visitedNodes = new Set();
+    let visitedEdges = new Set();
+
+    function getCookie(name) {
+        const cookies = document.cookie ? document.cookie.split(";") : [];
+
+        for (let cookie of cookies) {
+            cookie = cookie.trim();
+
+            if (cookie.startsWith(name + "=")) {
+                return decodeURIComponent(cookie.substring(name.length + 1));
+            }
+        }
+
+        return "";
+    }
+
+    function showError(message) {
+        const box = document.getElementById("error-box");
+        box.style.display = "block";
+        box.textContent = message;
+    }
+
+    function clearError() {
+        const box = document.getElementById("error-box");
+        box.style.display = "none";
+        box.textContent = "";
+    }
+
+    function showValidation(validation) {
+        const box = document.getElementById("validation-box");
+
+        if (!validation || validation.accepted) {
+            box.style.display = "none";
+            box.textContent = "";
+            return;
+        }
+
+        box.style.display = "block";
+        box.textContent = (validation.errors || []).join("\n") || "Invalid answer.";
+    }
+
+    function setControlsEnabled(enabled) {
+    if (isBusy) {
+        return;
+    }
+
+        document.getElementById("answer-input").disabled = !enabled;
+        document.getElementById("submit-answer-button").disabled = !enabled;
+        document.getElementById("reset-button").disabled = !currentSessionId;
+        document.getElementById("abandon-button").disabled = !currentSessionId;
+    }
+
+    function answerUrl(sessionId) {
+        return `/questionnaires/simulator-sessions/${sessionId}/answer/`;
+    }
+
+    function abandonUrl(sessionId) {
+        return `/questionnaires/simulator-sessions/${sessionId}/abandon/`;
+    }
+
+    async function postJson(url, payload = {}) {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": getCookie("csrftoken"),
+            },
+            body: JSON.stringify(payload),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || `Request failed with HTTP ${response.status}`);
+        }
+
+        return data;
+    }
+
+    function normalizeEdgeId(edge) {
+        const source = edge.source || edge.source_question || edge.from || "";
+        const target = edge.target || edge.target_question || edge.to || "";
+        const condition = edge.condition_text || edge.condition || "";
+
+        if (condition) {
+            return `${source}->${target}::${condition}`;
+        }
+
+        return `${source}->${target}`;
+    }
+
+    function buildGraph() {
+        if (typeof vis === "undefined") {
+            document.getElementById("graph").innerHTML =
+                "<div style='padding:20px;color:#991b1b;'>vis-network failed to load.</div>";
+            return;
+        }
+
+        const visualNodes = rawNodes.map((node) => {
+            return {
+                id: node.id,
+                label: node.id,
+                shape: "circle",
+                color: {
+                    background: "#bfdbfe",
+                    border: "#2563eb",
+                    highlight: {
+                        background: "#93c5fd",
+                        border: "#1d4ed8",
+                    },
+                },
+                font: {
+                    color: "#111827",
+                    size: 13,
+                    face: "Arial",
+                },
+                borderWidth: 2,
+                metadata: node,
+            };
+        });
+
+        const visualEdges = rawEdges.map((edge) => {
+            const type = edge.type || edge.edge_type || "unknown";
+            const isConditional = type === "conditional";
+            const isSequential = type === "sequential";
+            const isLoop = type === "loop";
+
+            let color = "#374151";
+            let dashes = false;
+            let width = 2;
+            let label = type;
+
+            if (isSequential) {
+                color = "#9ca3af";
+                dashes = true;
+                label = "next";
+            }
+
+            if (isConditional) {
+                color = "#d97706";
+                width = 3;
+                label = "condition";
+            }
+
+            if (isLoop) {
+                color = "#f97316";
+                label = "loop";
+            }
+
+            return {
+                id: normalizeEdgeId(edge),
+                from: edge.source || edge.source_question,
+                to: edge.target || edge.target_question,
+                arrows: "to",
+                label: label,
+                dashes: dashes,
+                width: width,
+                color: {
+                    color: color,
+                    highlight: color,
+                },
+                font: {
+                    size: 11,
+                    background: "#ffffff",
+                },
+                metadata: edge,
+            };
+        });
+
+        nodes = new vis.DataSet(visualNodes);
+        edges = new vis.DataSet(visualEdges);
+
+        network = new vis.Network(
+            document.getElementById("graph"),
+            {nodes, edges},
+            {
+                autoResize: true,
+                layout: {improvedLayout: true},
+                physics: {
+                    enabled: true,
+                    solver: "forceAtlas2Based",
+                    stabilization: {
+                        enabled: true,
+                        iterations: 120,
+                    },
+                },
+                interaction: {
+                    hover: true,
+                    navigationButtons: true,
+                    keyboard: true,
+                },
+            }
+        );
+
+        network.once("stabilizationIterationsDone", function () {
+            network.setOptions({physics: false});
+            network.fit({
+                animation: {
+                    duration: 500,
+                    easingFunction: "easeInOutQuad",
+                },
+            });
+        });
+    }
+
+    function resetTraversalState() {
+        visitedNodes = new Set();
+        visitedEdges = new Set();
+    }
+
+    function resetGraphStyles() {
+        if (!nodes || !edges) {
+            return;
+        }
+
+        nodes.update(
+            rawNodes.map((node) => ({
+                id: node.id,
+                color: {
+                    background: "#bfdbfe",
+                    border: "#2563eb",
+                    highlight: {
+                        background: "#93c5fd",
+                        border: "#1d4ed8",
+                    },
+                },
+                borderWidth: 2,
+                opacity: 1,
+            }))
+        );
+
+        edges.update(
+            rawEdges.map((edge) => {
+                const id = normalizeEdgeId(edge);
+                const type = edge.type || edge.edge_type || "unknown";
+                let color = "#374151";
+
+                if (type === "sequential") {
+                    color = "#9ca3af";
+                } else if (type === "conditional") {
+                    color = "#d97706";
+                } else if (type === "loop") {
+                    color = "#f97316";
+                }
+
+                return {
+                    id: id,
+                    color: {
+                        color: color,
+                        highlight: color,
+                    },
+                    width: type === "conditional" ? 3 : 2,
+                    opacity: 1,
+                };
+            })
+        );
+    }
+
+    function markTraversedState(graphHighlight) {
+        if (!graphHighlight) {
+            return;
+        }
+
+        if (graphHighlight.previous_node) {
+            visitedNodes.add(graphHighlight.previous_node);
+        }
+
+        if (graphHighlight.active_node) {
+            visitedNodes.add(graphHighlight.active_node);
+        }
+
+        if (graphHighlight.active_edge) {
+            visitedEdges.add(graphHighlight.active_edge);
+        }
+    }
+
+    function paintVisitedGraphItems() {
+        visitedNodes.forEach((nodeId) => {
+            if (nodes.get(nodeId)) {
+                nodes.update({
+                    id: nodeId,
+                    color: {
+                        background: "#ddd6fe",
+                        border: "#7c3aed",
+                        highlight: {
+                            background: "#c4b5fd",
+                            border: "#6d28d9",
+                        },
+                    },
+                    borderWidth: 3,
+                });
+            }
+        });
+
+        visitedEdges.forEach((edgeId) => {
+            if (edges.get(edgeId)) {
+                edges.update({
+                    id: edgeId,
+                    color: {
+                        color: "#7c3aed",
+                        highlight: "#6d28d9",
+                    },
+                    width: 4,
+                });
+            }
+        });
+    }
+
+    function applyGraphHighlight(graphHighlight) {
+        if (!nodes || !edges || !graphHighlight) {
+            return;
+        }
+
+        markTraversedState(graphHighlight);
+        resetGraphStyles();
+
+        const activeNode = graphHighlight.active_node;
+        const previousNode = graphHighlight.previous_node;
+        const activeEdge = graphHighlight.active_edge;
+        const candidateEdges = graphHighlight.candidate_edges || [];
+        const rejectedEdges = graphHighlight.rejected_edges || [];
+
+        document.getElementById("graph-active-node").textContent = activeNode || "-";
+        document.getElementById("graph-previous-node").textContent = previousNode || "-";
+
+        paintVisitedGraphItems();
+
+        candidateEdges.forEach((edgeId) => {
+            if (edges.get(edgeId)) {
+                edges.update({
+                    id: edgeId,
+                    color: {
+                        color: "#f59e0b",
+                        highlight: "#d97706",
+                    },
+                    width: 4,
+                });
+            }
+        });
+
+        rejectedEdges.forEach((edgeId) => {
+            if (edges.get(edgeId)) {
+                edges.update({
+                    id: edgeId,
+                    color: {
+                        color: "#dc2626",
+                        highlight: "#991b1b",
+                    },
+                    width: 3,
+                });
+            }
+        });
+
+        if (activeEdge && edges.get(activeEdge)) {
+            edges.update({
+                id: activeEdge,
+                color: {
+                    color: "#16a34a",
+                    highlight: "#15803d",
+                },
+                width: 6,
+            });
+        }
+
+        if (previousNode && activeNode && nodes.get(previousNode)) {
+            nodes.update({
+                id: previousNode,
+                color: {
+                    background: "#fef3c7",
+                    border: "#d97706",
+                    highlight: {
+                        background: "#fde68a",
+                        border: "#92400e",
+                    },
+                },
+                borderWidth: 4,
+            });
+        }
+
+        if (activeNode && nodes.get(activeNode)) {
+            nodes.update({
+                id: activeNode,
+                color: {
+                    background: "#22c55e",
+                    border: "#166534",
+                    highlight: {
+                        background: "#86efac",
+                        border: "#14532d",
+                    },
+                },
+                borderWidth: 5,
+            });
+        }
+
+        if (activeNode && network && nodes.get(activeNode)) {
+            network.focus(activeNode, {
+                scale: 1.1,
+                animation: {
+                    duration: 500,
+                    easingFunction: "easeInOutQuad",
+                },
+            });
+        }
+    }
+
+    function renderState(state) {
+        currentSessionId = state.session_id || currentSessionId;
+
+        document.getElementById("session-id").textContent = currentSessionId || "Not started";
+        document.getElementById("session-status").textContent = state.status || "-";
+        document.getElementById("current-question").textContent =
+            state.current_question ? state.current_question.name : "-";
+
+        document.getElementById("assistant-message").textContent =
+            state.assistant_message || "";
+
+        document.getElementById("debug-variable").textContent =
+            state.debug?.variable_name || "-";
+
+        document.getElementById("debug-routing-reason").textContent =
+            state.debug?.routing_reason || "-";
+
+        document.getElementById("debug-json").textContent =
+            JSON.stringify(state.debug || {}, null, 2);
+
+        showValidation(state.validation);
+
+        applyGraphHighlight(state.graph_highlight);
+
+        const isActive = state.status === "active" && !!state.current_question;
+        setControlsEnabled(isActive);
+
+        if (isActive) {
+            document.getElementById("answer-input").focus();
+        }
+    }
+
+    async function startSimulator() {
+        clearError();
+        showValidation(null);
+        setBusy(true, "Starting simulator...");
+
+        try {
+            const state = await postJson(START_URL, {});
+            renderState(state);
+            document.getElementById("answer-input").value = "";
+        } catch (error) {
+            showError(error.message);
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    async function submitAnswer() {
+    clearError();
+
+    if (isBusy) {
+        return;
+    }
+
+    if (!currentSessionId) {
+        showError("No active session.");
+        return;
+    }
+
+    const answer = document.getElementById("answer-input").value.trim();
+
+    if (!answer) {
+        showError("Please enter an answer letter, for example A.");
+        return;
+    }
+
+    setBusy(true, "Submitting answer and calculating next question...");
+
+    try {
+        const state = await postJson(answerUrl(currentSessionId), {
+            answer: answer,
+        });
+        renderState(state);
+
+        if (!state.validation || state.validation.accepted) {
+            document.getElementById("answer-input").value = "";
+        }
+    } catch (error) {
+        showError(error.message);
+    } finally {
+        setBusy(false);
+    }
+}
+
+    async function abandonSession() {
+        clearError();
+
+        if (isBusy) {
+            return;
+        }
+
+        if (!currentSessionId) {
+            return;
+        }
+
+        setBusy(true, "Abandoning session...");
+
+        try {
+            const state = await postJson(abandonUrl(currentSessionId), {});
+            document.getElementById("session-status").textContent = state.status || "abandoned";
+            setControlsEnabled(false);
+        } catch (error) {
+            showError(error.message);
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    document.getElementById("start-button").addEventListener("click", startSimulator);
+    document.getElementById("reset-button").addEventListener("click", startSimulator);
+    document.getElementById("submit-answer-button").addEventListener("click", submitAnswer);
+    document.getElementById("abandon-button").addEventListener("click", abandonSession);
+
+    document.getElementById("answer-input").addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+            submitAnswer();
+        }
+    });
+
+    buildGraph();
+</script>
+
+</body>
+</html>

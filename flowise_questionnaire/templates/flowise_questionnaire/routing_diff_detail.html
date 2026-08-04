@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Routing diff detail - {{ focus_question_name }}</title>
+
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: #f7f7f7;
+            color: #111827;
+        }
+
+        .topbar {
+            box-sizing: border-box;
+            background: #111827;
+            color: #ffffff;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .topbar h1 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .topbar a {
+            color: #ffffff;
+            text-decoration: none;
+            background: #374151;
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-left: 8px;
+            font-size: 13px;
+        }
+
+        .container {
+            max-width: 1300px;
+            margin: 24px auto;
+            padding: 0 24px;
+        }
+
+        .summary-card {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .severity-warning {
+            color: #92400e;
+            background: #fffbeb;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+        }
+
+        .severity-info {
+            color: #1e40af;
+            background: #eff6ff;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+        }
+
+        .severity-error {
+            color: #991b1b;
+            background: #fee2e2;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+        }
+
+        .type-badge {
+            display: inline-block;
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: bold;
+            background: #1f2937;
+            color: #ffffff;
+            margin-left: 6px;
+        }
+
+        code {
+            background: #f3f4f6;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+
+        .explanation-summary {
+            margin: 10px 0;
+            font-size: 15px;
+        }
+
+        .edge-block {
+            border-left: 3px solid #e5e7eb;
+            padding-left: 10px;
+        }
+
+        .edge-line {
+            margin-top: 4px;
+            font-size: 13px;
+            color: #374151;
+        }
+
+        .edge-label {
+            color: #6b7280;
+        }
+
+        .meaning-block {
+            margin-top: 10px;
+            padding: 10px 12px;
+            background: #f9fafb;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #374151;
+            line-height: 1.5;
+        }
+
+        .meaning-block strong {
+            color: #111827;
+        }
+
+        .details-section {
+            margin-top: 24px;
+        }
+
+        .details-section h2 {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #ffffff;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        th, td {
+            border-bottom: 1px solid #e5e7eb;
+            padding: 12px;
+            text-align: left;
+            vertical-align: top;
+            font-size: 14px;
+        }
+
+        th {
+            background: #f9fafb;
+            color: #374151;
+        }
+
+        .muted {
+            color: #6b7280;
+            font-size: 13px;
+        }
+
+        .graphs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        @media (max-width: 900px) {
+            .graphs {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .graph-panel {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .graph-panel h2 {
+            margin: 0;
+            padding: 12px 16px;
+            font-size: 15px;
+            border-bottom: 1px solid #e5e7eb;
+            background: #f9fafb;
+        }
+
+        .graph-canvas {
+            width: 100%;
+            height: 480px;
+            position: relative;
+        }
+
+        .graph-empty {
+            padding: 24px;
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .legend {
+            padding: 10px 16px;
+            font-size: 12px;
+            color: #6b7280;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .legend-dot {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .legend-line {
+            width: 20px;
+            height: 0;
+            border-top: 3px solid #374151;
+            display: inline-block;
+        }
+
+        .focus-dot { background: #16a34a; }
+        .question-dot { background: #60a5fa; }
+        .loop-dot { background: #f97316; }
+        .external-dot { background: #7c3aed; }
+        .unknown-dot { background: #6b7280; }
+        .highlight-line { border-top-color: #dc2626; }
+        .sequential-line { border-top-style: dashed; border-top-color: #9ca3af; }
+    </style>
+</head>
+<body>
+
+<div class="topbar">
+    <h1>Routing diff detail: {{ focus_question_name }}</h1>
+    <div>
+        <a href="{% url 'flowise_questionnaire:routing_diff_report' colectica_module.id forsta_module.id %}">Back to routing diff</a>
+        <a href="{% url 'flowise_questionnaire:module_graph' colectica_module.id %}" target="_blank" rel="noopener">Full Colectica graph</a>
+        <a href="{% url 'flowise_questionnaire:module_graph' forsta_module.id %}" target="_blank" rel="noopener">Full Forsta+ graph</a>
+    </div>
+</div>
+
+<div class="container">
+    <div class="graphs">
+        <div class="graph-panel">
+            <h2>Colectica routing around {{ focus_question_name }}</h2>
+            <div id="colectica-graph" class="graph-canvas"></div>
+            <div class="legend">
+                <span class="legend-item"><span class="legend-dot focus-dot"></span>Focus question</span>
+                <span class="legend-item"><span class="legend-dot question-dot"></span>Question</span>
+                <span class="legend-item"><span class="legend-dot loop-dot"></span>Loop container</span>
+                <span class="legend-item"><span class="legend-dot external-dot"></span>External / multi-source variable</span>
+                <span class="legend-item"><span class="legend-dot unknown-dot"></span>Unknown target</span>
+                <span class="legend-item"><span class="legend-line highlight-line"></span>This discrepancy's edge</span>
+                <span class="legend-item"><span class="legend-line sequential-line"></span>Normal sequence</span>
+            </div>
+        </div>
+        <div class="graph-panel">
+            <h2>Forsta+ routing around {{ focus_question_name }}</h2>
+            <div id="forsta-graph" class="graph-canvas"></div>
+            <div class="legend">
+                <span class="legend-item"><span class="legend-dot focus-dot"></span>Focus question</span>
+                <span class="legend-item"><span class="legend-dot question-dot"></span>Question</span>
+                <span class="legend-item"><span class="legend-dot loop-dot"></span>Loop container</span>
+                <span class="legend-item"><span class="legend-dot external-dot"></span>External / multi-source variable</span>
+                <span class="legend-item"><span class="legend-dot unknown-dot"></span>Unknown target</span>
+                <span class="legend-item"><span class="legend-line highlight-line"></span>This discrepancy's edge</span>
+                <span class="legend-item"><span class="legend-line sequential-line"></span>Normal sequence</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="details-section">
+        <h2>Discrepancy details</h2>
+        <table>
+            <thead>
+            <tr>
+                <th>Severity</th>
+                <th>Type</th>
+                <th>Colectica question</th>
+                <th>Forsta+ question</th>
+                <th>Details</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td>
+                    <span class="severity-{{ discrepancy.severity }}">{{ discrepancy.get_severity_display }}</span>
+                </td>
+                <td>{{ discrepancy.get_discrepancy_type_display }}</td>
+                <td>
+                    <code>{{ discrepancy.question_match.colectica_question.name }}</code>
+                </td>
+                <td>
+                    {% if discrepancy.question_match.forsta_question %}
+                        <code>{{ discrepancy.question_match.forsta_question.name }}</code>
+                    {% else %}
+                        <span class="muted">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="explanation-summary">{{ explanation.summary }}</div>
+
+                    {% if explanation.edge %}
+                        <div class="edge-block">
+                            <div class="edge-line">
+                                <span class="edge-label">{{ explanation.edge.origin_system }} routing edge &mdash; source:</span>
+                                <code>{{ explanation.edge.source_question }}</code>
+                                <span class="edge-label">&rarr; target:</span>
+                                <code>{{ explanation.edge.target_question }}</code>
+                            </div>
+                            {% if explanation.edge.condition_text %}
+                                <div class="edge-line">
+                                    <span class="edge-label">Must hold to fire (raw {{ explanation.edge.origin_system }} condition):</span>
+                                    <code>{{ explanation.edge.condition_text }}</code>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+
+                    <div class="meaning-block">
+                        <strong>What this means:</strong> {{ explanation.meaning }}
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{{ colectica_graph|json_script:"colectica-graph-data" }}
+{{ forsta_graph|json_script:"forsta-graph-data" }}
+{{ focus_question_name|json_script:"focus-question-name-data" }}
+{{ highlight_edge|json_script:"highlight-edge-data" }}
+
+<script>
+    (function () {
+        const focusName = JSON.parse(document.getElementById("focus-question-name-data").textContent || "null");
+        const highlightEdge = JSON.parse(document.getElementById("highlight-edge-data").textContent || "null");
+
+        function normalize(value) {
+            return String(value || "").trim().toLowerCase();
+        }
+
+        function sourcePartsFromEdge(edge) {
+            return String(edge.source || "").split(",").map((item) => item.trim()).filter(Boolean);
+        }
+
+        function nodeColor(type, isFocus) {
+            if (isFocus) {
+                return {background: "#16a34a", border: "#166534", highlight: {background: "#86efac", border: "#14532d"}};
+            }
+            if (type === "loop") {
+                return {background: "#f97316", border: "#c2410c", highlight: {background: "#fdba74", border: "#9a3412"}};
+            }
+            if (type === "external_variable") {
+                return {background: "#7c3aed", border: "#5b21b6", highlight: {background: "#c4b5fd", border: "#4c1d95"}};
+            }
+            if (type === "unknown_target") {
+                return {background: "#6b7280", border: "#374151", highlight: {background: "#d1d5db", border: "#111827"}};
+            }
+            return {background: "#60a5fa", border: "#2563eb", highlight: {background: "#bfdbfe", border: "#1d4ed8"}};
+        }
+
+        function edgeIsHighlighted(edge) {
+            if (!highlightEdge) {
+                return false;
+            }
+            const targetMatches = normalize(edge.target) === normalize(highlightEdge.target);
+            const sourceMatches = sourcePartsFromEdge(edge).some(
+                (part) => normalize(part) === normalize(highlightEdge.source)
+            );
+            return targetMatches && sourceMatches;
+        }
+
+        function buildVisualEdge(edge) {
+            const isSequential = edge.type === "sequential";
+            const isLoop = edge.type === "loop";
+            const highlighted = edgeIsHighlighted(edge);
+
+            let color = "#374151";
+            let width = 2;
+            let dashes = false;
+            let label = edge.condition_text || edge.condition || edge.label || edge.type || "";
+
+            if (isSequential) {
+                color = "#9ca3af";
+                dashes = true;
+                label = "next";
+            } else if (isLoop) {
+                color = "#f97316";
+            } else {
+                color = "#2563eb";
+                width = 3;
+            }
+
+            if (highlighted) {
+                color = "#dc2626";
+                width = 4;
+                dashes = false;
+                label = "⚠ " + label;
+            }
+
+            return {
+                id: edge.id || `${edge.source}__${edge.target}__${edge.type}`,
+                from: edge.source,
+                to: edge.target,
+                label: label,
+                title: edge.condition_text || edge.condition || edge.type || "",
+                arrows: "to",
+                color: {color: color, highlight: color},
+                width: width,
+                dashes: dashes,
+                font: {size: 11, align: "middle", background: "#ffffff"},
+                smooth: {enabled: true, type: "dynamic"}
+            };
+        }
+
+        function renderNeighborhoodGraph(containerId, graphData) {
+            const container = document.getElementById(containerId);
+
+            if (!graphData || !Array.isArray(graphData.nodes_json) || graphData.nodes_json.length === 0) {
+                container.innerHTML = `
+                    <div class="graph-empty">
+                        No graph data around <code>${focusName || "this question"}</code> here. Either the
+                        graph hasn't been built for this module yet, or this system has no routing edges
+                        touching this question.
+                    </div>
+                `;
+                return;
+            }
+
+            if (typeof vis === "undefined") {
+                container.innerHTML = `<div class="graph-empty">Graph library failed to load from the CDN.</div>`;
+                return;
+            }
+
+            const rawNodes = graphData.nodes_json;
+            const rawEdges = graphData.edges_json || [];
+
+            const nodes = new vis.DataSet(
+                rawNodes.map((node) => {
+                    const isFocus = normalize(node.id) === normalize(focusName);
+                    const title = node.data?.title || node.id;
+                    return {
+                        id: node.id,
+                        label: node.id,
+                        title: `${node.id}\n${title}`,
+                        shape: node.type === "loop" ? "box" : "circle",
+                        size: isFocus ? 30 : 24,
+                        color: nodeColor(node.type, isFocus),
+                        borderWidth: isFocus ? 4 : 2,
+                        font: {size: 12, face: "Arial", color: "#111827"}
+                    };
+                })
+            );
+
+            const edges = new vis.DataSet(rawEdges.map(buildVisualEdge));
+
+            try {
+                const network = new vis.Network(
+                    container,
+                    {nodes: nodes, edges: edges},
+                    {
+                        autoResize: true,
+                        layout: {improvedLayout: true},
+                        physics: {
+                            enabled: true,
+                            solver: "forceAtlas2Based",
+                            forceAtlas2Based: {gravitationalConstant: -60, centralGravity: 0.02, springLength: 130},
+                            stabilization: {enabled: true, iterations: 120}
+                        },
+                        interaction: {hover: true, dragNodes: true, dragView: true, zoomView: true},
+                        edges: {smooth: {enabled: true, type: "dynamic"}}
+                    }
+                );
+
+                network.once("stabilizationIterationsDone", function () {
+                    network.setOptions({physics: false});
+                    network.fit({animation: {duration: 300, easingFunction: "easeInOutQuad"}});
+                });
+            } catch (error) {
+                console.error("Graph rendering failed:", error);
+                container.innerHTML = `<div class="graph-empty">Graph rendering failed: ${error.message}</div>`;
+            }
+        }
+
+        const colecticaGraph = JSON.parse(document.getElementById("colectica-graph-data").textContent || "null");
+        const forstaGraph = JSON.parse(document.getElementById("forsta-graph-data").textContent || "null");
+
+        renderNeighborhoodGraph("colectica-graph", colecticaGraph);
+        renderNeighborhoodGraph("forsta-graph", forstaGraph);
+    })();
+</script>
+
+</body>
+</html>

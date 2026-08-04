@@ -1,0 +1,561 @@
+{
+  "nodes": [
+    {
+      "id": "startAgentflow_0",
+      "type": "agentFlow",
+      "position": {
+        "x": -237.60843553630926,
+        "y": 60.556632823679024
+      },
+      "data": {
+        "id": "startAgentflow_0",
+        "label": "Start",
+        "version": 1.1,
+        "name": "startAgentflow",
+        "type": "Start",
+        "color": "#7EE787",
+        "hideInput": true,
+        "baseClasses": [
+          "Start"
+        ],
+        "category": "Agent Flows",
+        "description": "Starting point of the agentflow",
+        "inputParams": [
+          {
+            "label": "Input Type",
+            "name": "startInputType",
+            "type": "options",
+            "options": [
+              {
+                "label": "Chat Input",
+                "name": "chatInput",
+                "description": "Start the conversation with chat input"
+              },
+              {
+                "label": "Form Input",
+                "name": "formInput",
+                "description": "Start the workflow with form inputs"
+              }
+            ],
+            "default": "chatInput",
+            "id": "startAgentflow_0-input-startInputType-options",
+            "display": true
+          },
+          {
+            "label": "Form Title",
+            "name": "formTitle",
+            "type": "string",
+            "placeholder": "Please Fill Out The Form",
+            "show": {
+              "startInputType": "formInput"
+            },
+            "id": "startAgentflow_0-input-formTitle-string",
+            "display": true
+          },
+          {
+            "label": "Form Description",
+            "name": "formDescription",
+            "type": "string",
+            "placeholder": "Complete all fields below to continue",
+            "show": {
+              "startInputType": "formInput"
+            },
+            "id": "startAgentflow_0-input-formDescription-string",
+            "display": true
+          },
+          {
+            "label": "Form Input Types",
+            "name": "formInputTypes",
+            "description": "Specify the type of form input",
+            "type": "array",
+            "show": {
+              "startInputType": "formInput"
+            },
+            "array": [
+              {
+                "label": "Type",
+                "name": "type",
+                "type": "options",
+                "options": [
+                  {
+                    "label": "String",
+                    "name": "string"
+                  },
+                  {
+                    "label": "Number",
+                    "name": "number"
+                  },
+                  {
+                    "label": "Boolean",
+                    "name": "boolean"
+                  },
+                  {
+                    "label": "Options",
+                    "name": "options"
+                  }
+                ],
+                "default": "string"
+              },
+              {
+                "label": "Label",
+                "name": "label",
+                "type": "string",
+                "placeholder": "Label for the input"
+              },
+              {
+                "label": "Variable Name",
+                "name": "name",
+                "type": "string",
+                "placeholder": "Variable name for the input (must be camel case)",
+                "description": "Variable name must be camel case. For example: firstName, lastName, etc."
+              },
+              {
+                "label": "Add Options",
+                "name": "addOptions",
+                "type": "array",
+                "show": {
+                  "formInputTypes[$index].type": "options"
+                },
+                "array": [
+                  {
+                    "label": "Option",
+                    "name": "option",
+                    "type": "string"
+                  }
+                ]
+              }
+            ],
+            "id": "startAgentflow_0-input-formInputTypes-array",
+            "display": true
+          },
+          {
+            "label": "Ephemeral Memory",
+            "name": "startEphemeralMemory",
+            "type": "boolean",
+            "description": "Start fresh for every execution without past chat history",
+            "optional": true,
+            "id": "startAgentflow_0-input-startEphemeralMemory-boolean",
+            "display": true
+          },
+          {
+            "label": "Flow State",
+            "name": "startState",
+            "description": "Runtime state during the execution of the workflow",
+            "type": "array",
+            "optional": true,
+            "array": [
+              {
+                "label": "Key",
+                "name": "key",
+                "type": "string",
+                "placeholder": "Foo"
+              },
+              {
+                "label": "Value",
+                "name": "value",
+                "type": "string",
+                "placeholder": "Bar",
+                "optional": true
+              }
+            ],
+            "id": "startAgentflow_0-input-startState-array",
+            "display": true
+          },
+          {
+            "label": "Persist State",
+            "name": "startPersistState",
+            "type": "boolean",
+            "description": "Persist the state in the same session",
+            "optional": true,
+            "id": "startAgentflow_0-input-startPersistState-boolean",
+            "display": true
+          }
+        ],
+        "inputAnchors": [],
+        "inputs": {
+          "startInputType": "formInput",
+          "formTitle": "Questionnaire Module Payload",
+          "formDescription": "Paste the Django Agentflow payload JSON.",
+          "formInputTypes": [
+            {
+              "type": "string",
+              "label": "payload",
+              "name": "payload",
+              "addOptions": ""
+            }
+          ],
+          "startEphemeralMemory": "",
+          "startState": "",
+          "startPersistState": ""
+        },
+        "outputAnchors": [
+          {
+            "id": "startAgentflow_0-output-startAgentflow",
+            "label": "Start",
+            "name": "startAgentflow"
+          }
+        ],
+        "outputs": {},
+        "selected": false
+      },
+      "width": 103,
+      "height": 65,
+      "selected": false,
+      "positionAbsolute": {
+        "x": -237.60843553630926,
+        "y": 60.556632823679024
+      },
+      "dragging": false
+    },
+    {
+      "id": "llmAgentflow_0",
+      "position": {
+        "x": -29.599366058249387,
+        "y": 48.63628105008668
+      },
+      "data": {
+        "id": "llmAgentflow_0",
+        "label": "LLM 0",
+        "version": 1.1,
+        "name": "llmAgentflow",
+        "type": "LLM",
+        "color": "#64B5F6",
+        "baseClasses": [
+          "LLM"
+        ],
+        "category": "Agent Flows",
+        "description": "Large language models to analyze user-provided inputs and generate responses",
+        "inputParams": [
+          {
+            "label": "Model",
+            "name": "llmModel",
+            "type": "asyncOptions",
+            "loadMethod": "listModels",
+            "loadConfig": true,
+            "id": "llmAgentflow_0-input-llmModel-asyncOptions",
+            "display": true
+          },
+          {
+            "label": "Messages",
+            "name": "llmMessages",
+            "type": "array",
+            "optional": true,
+            "acceptVariable": true,
+            "array": [
+              {
+                "label": "Role",
+                "name": "role",
+                "type": "options",
+                "options": [
+                  {
+                    "label": "System",
+                    "name": "system"
+                  },
+                  {
+                    "label": "Assistant",
+                    "name": "assistant"
+                  },
+                  {
+                    "label": "Developer",
+                    "name": "developer"
+                  },
+                  {
+                    "label": "User",
+                    "name": "user"
+                  }
+                ]
+              },
+              {
+                "label": "Content",
+                "name": "content",
+                "type": "string",
+                "acceptVariable": true,
+                "generateInstruction": true,
+                "rows": 4
+              }
+            ],
+            "id": "llmAgentflow_0-input-llmMessages-array",
+            "display": true
+          },
+          {
+            "label": "Enable Memory",
+            "name": "llmEnableMemory",
+            "type": "boolean",
+            "description": "Enable memory for the conversation thread",
+            "default": true,
+            "optional": true,
+            "id": "llmAgentflow_0-input-llmEnableMemory-boolean",
+            "display": true
+          },
+          {
+            "label": "Memory Type",
+            "name": "llmMemoryType",
+            "type": "options",
+            "options": [
+              {
+                "label": "All Messages",
+                "name": "allMessages",
+                "description": "Retrieve all messages from the conversation"
+              },
+              {
+                "label": "Window Size",
+                "name": "windowSize",
+                "description": "Uses a fixed window size to surface the last N messages"
+              },
+              {
+                "label": "Conversation Summary",
+                "name": "conversationSummary",
+                "description": "Summarizes the whole conversation"
+              },
+              {
+                "label": "Conversation Summary Buffer",
+                "name": "conversationSummaryBuffer",
+                "description": "Summarize conversations once token limit is reached. Default to 2000"
+              }
+            ],
+            "optional": true,
+            "default": "allMessages",
+            "show": {
+              "llmEnableMemory": true
+            },
+            "id": "llmAgentflow_0-input-llmMemoryType-options",
+            "display": false
+          },
+          {
+            "label": "Window Size",
+            "name": "llmMemoryWindowSize",
+            "type": "number",
+            "default": "20",
+            "description": "Uses a fixed window size to surface the last N messages",
+            "show": {
+              "llmMemoryType": "windowSize"
+            },
+            "id": "llmAgentflow_0-input-llmMemoryWindowSize-number",
+            "display": false
+          },
+          {
+            "label": "Max Token Limit",
+            "name": "llmMemoryMaxTokenLimit",
+            "type": "number",
+            "default": "2000",
+            "description": "Summarize conversations once token limit is reached. Default to 2000",
+            "show": {
+              "llmMemoryType": "conversationSummaryBuffer"
+            },
+            "id": "llmAgentflow_0-input-llmMemoryMaxTokenLimit-number",
+            "display": false
+          },
+          {
+            "label": "Input Message",
+            "name": "llmUserMessage",
+            "type": "string",
+            "description": "Add an input message as user message at the end of the conversation",
+            "rows": 4,
+            "optional": true,
+            "acceptVariable": true,
+            "show": {
+              "llmEnableMemory": true
+            },
+            "id": "llmAgentflow_0-input-llmUserMessage-string",
+            "display": false
+          },
+          {
+            "label": "Return Response As",
+            "name": "llmReturnResponseAs",
+            "type": "options",
+            "options": [
+              {
+                "label": "User Message",
+                "name": "userMessage"
+              },
+              {
+                "label": "Assistant Message",
+                "name": "assistantMessage"
+              }
+            ],
+            "default": "userMessage",
+            "id": "llmAgentflow_0-input-llmReturnResponseAs-options",
+            "display": true
+          },
+          {
+            "label": "JSON Structured Output",
+            "name": "llmStructuredOutput",
+            "description": "Instruct the LLM to give output in a JSON structured schema",
+            "type": "array",
+            "optional": true,
+            "acceptVariable": true,
+            "array": [
+              {
+                "label": "Key",
+                "name": "key",
+                "type": "string"
+              },
+              {
+                "label": "Type",
+                "name": "type",
+                "type": "options",
+                "options": [
+                  {
+                    "label": "String",
+                    "name": "string"
+                  },
+                  {
+                    "label": "String Array",
+                    "name": "stringArray"
+                  },
+                  {
+                    "label": "Number",
+                    "name": "number"
+                  },
+                  {
+                    "label": "Boolean",
+                    "name": "boolean"
+                  },
+                  {
+                    "label": "Enum",
+                    "name": "enum"
+                  },
+                  {
+                    "label": "JSON Array",
+                    "name": "jsonArray"
+                  }
+                ]
+              },
+              {
+                "label": "Enum Values",
+                "name": "enumValues",
+                "type": "string",
+                "placeholder": "value1, value2, value3",
+                "description": "Enum values. Separated by comma",
+                "optional": true,
+                "show": {
+                  "llmStructuredOutput[$index].type": "enum"
+                }
+              },
+              {
+                "label": "JSON Schema",
+                "name": "jsonSchema",
+                "type": "code",
+                "placeholder": "{\n    \"answer\": {\n        \"type\": \"string\",\n        \"description\": \"Value of the answer\"\n    },\n    \"reason\": {\n        \"type\": \"string\",\n        \"description\": \"Reason for the answer\"\n    },\n    \"optional\": {\n        \"type\": \"boolean\"\n    },\n    \"count\": {\n        \"type\": \"number\"\n    },\n    \"children\": {\n        \"type\": \"array\",\n        \"items\": {\n            \"type\": \"object\",\n            \"properties\": {\n                \"value\": {\n                    \"type\": \"string\",\n                    \"description\": \"Value of the children's answer\"\n                }\n            }\n        }\n    }\n}",
+                "description": "JSON schema for the structured output",
+                "optional": true,
+                "hideCodeExecute": true,
+                "show": {
+                  "llmStructuredOutput[$index].type": "jsonArray"
+                }
+              },
+              {
+                "label": "Description",
+                "name": "description",
+                "type": "string",
+                "placeholder": "Description of the key"
+              }
+            ],
+            "id": "llmAgentflow_0-input-llmStructuredOutput-array",
+            "display": true
+          },
+          {
+            "label": "Update Flow State",
+            "name": "llmUpdateState",
+            "description": "Update runtime state during the execution of the workflow",
+            "type": "array",
+            "optional": true,
+            "acceptVariable": true,
+            "array": [
+              {
+                "label": "Key",
+                "name": "key",
+                "type": "asyncOptions",
+                "loadMethod": "listRuntimeStateKeys"
+              },
+              {
+                "label": "Value",
+                "name": "value",
+                "type": "string",
+                "acceptVariable": true,
+                "acceptNodeOutputAsVariable": true
+              }
+            ],
+            "id": "llmAgentflow_0-input-llmUpdateState-array",
+            "display": true
+          }
+        ],
+        "inputAnchors": [],
+        "inputs": {
+          "llmModel": "chatOllama",
+          "llmMessages": [
+            {
+              "role": "user",
+              "content": "{{$form.payload}}"
+            },
+            {
+              "role": "system",
+              "content": "You are a questionnaire coverage intent review agent.\n\nYou receive a compact normalized questionnaire module payload from Django.\n\nDjango is the deterministic source of truth for:\n\n- routing extraction\n\n- coverage intent generation\n\n- simulation\n\n- validation\n\n- active/skipped question calculation\n\nYour job is advisory review only.\n\nCritical rules:\n\n1. Do not create new test cases.\n\n2. Do not rewrite coverage_intents.intents.\n\n3. Do not change seed_answers.\n\n4. Do not change required_external_context.\n\n5. Do not convert string answer codes into numbers.\n\n6. Do not invent question names.\n\n7. Do not invent external variables.\n\n8. Do not produce expected_active_questions.\n\n9. Do not produce expected_skipped_questions.\n\n10. Do not create sequential-edge tests.\n\n11. Review only the provided coverage_intents.intents.\n\n12. If an intent looks weak or incomplete, report it in warnings or suggested_improvements.\n\n13. Copy question names exactly character-for-character from schema_summary.questions[*].name.\n\n14. Do not normalize, abbreviate, correct, rename, lowercase, uppercase, or remove any prefix from question names.\n\n15. If a question name is AIDXHH, output AIDXHH exactly. Do not output IDXHH.\n\n16. Copy external variable names exactly character-for-character from routing_summary.external_variables.\n\n17. Do not calculate covered_conditional_edges yourself.\n\n18. Copy coverage_intents.covered_conditional_edges exactly character-for-character as the value of coverage_intent_review.covered_conditional_edges.\n\n19. Do not omit any value from coverage_intents.covered_conditional_edges.\n\n20. Do not add any value to coverage_intents.covered_conditional_edges.\n\n21. Copy coverage_intents.possibly_uncovered_conditional_edges exactly character-for-character as the value of coverage_intent_review.possibly_uncovered_conditional_edges.\n\n22. Do not create nested arrays inside covered_conditional_edges. It must be a flat list of integers.\n\n23. related_edge_indexes must contain only conditional edge indexes from routing_summary.conditional_edges.\n\n24. Do not use coverage intent indexes inside related_edge_indexes.\n\n25. If there are no meaningful suggested improvements, return suggested_improvements as an empty array [].\n\n26. Do not return placeholder suggested_improvements objects with empty type, empty message, and empty related_edge_indexes.\n\n27. If you accidentally mention a renamed or altered question name, report it in validation_self_check.renamed_question_names.\n\nImportant:\n\n- coverage_intents.covered_conditional_edges is authoritative.\n\n- coverage_intents.possibly_uncovered_conditional_edges is authoritative.\n\n- Do not recalculate coverage from coverage_intents.intents.\n\n- Do not infer missing coverage if coverage_intents.possibly_uncovered_conditional_edges is empty.\n\nReturn ONLY valid JSON with this exact shape:\n\n{\n\n  \"schema_review\": {\n\n    \"status\": \"passed | warnings | failed\",\n\n    \"real_question_names\": [],\n\n    \"warnings\": []\n\n  },\n\n  \"routing_review\": {\n\n    \"status\": \"passed | warnings | failed\",\n\n    \"external_variables\": [],\n\n    \"conditional_edge_count\": 0,\n\n    \"warnings\": []\n\n  },\n\n  \"coverage_intent_review\": {\n\n    \"status\": \"passed | warnings | failed\",\n\n    \"intent_count\": 0,\n\n    \"covered_conditional_edges\": [],\n\n    \"possibly_uncovered_conditional_edges\": [],\n\n    \"warnings\": []\n\n  },\n\n  \"suggested_improvements\": [],\n\n  \"validation_self_check\": {\n\n    \"did_not_create_test_cases\": true,\n\n    \"did_not_rewrite_coverage_intents\": true,\n\n    \"used_only_real_question_names\": true,\n\n    \"invented_question_names\": [],\n\n    \"question_names_copied_exactly\": true,\n\n    \"renamed_question_names\": [],\n\n    \"used_only_known_external_variables\": true,\n\n    \"invented_external_variables\": [],\n\n    \"contains_no_expected_active_questions\": true,\n\n    \"contains_no_expected_skipped_questions\": true,\n\n    \"copied_coverage_summary_exactly_when_present\": true,\n\n    \"used_only_conditional_edge_indexes_in_related_edge_indexes\": true,\n\n    \"no_placeholder_suggested_improvements\": true\n\n  }\n\n}"
+            }
+          ],
+          "llmEnableMemory": false,
+          "llmReturnResponseAs": "assistantMessage",
+          "llmStructuredOutput": "",
+          "llmUpdateState": "",
+          "llmModelConfig": {
+            "cache": "",
+            "baseUrl": "http://172.17.0.1:11434",
+            "modelName": "qwen2.5:7b-instruct",
+            "temperature": "0",
+            "streaming": false,
+            "allowImageUploads": "",
+            "think": "",
+            "jsonMode": true,
+            "keepAlive": "5m",
+            "topP": "",
+            "topK": "",
+            "mirostat": "",
+            "mirostatEta": "",
+            "mirostatTau": "",
+            "numCtx": "8192",
+            "numGpu": "",
+            "numThread": "",
+            "repeatLastN": "",
+            "repeatPenalty": "",
+            "stop": "",
+            "tfsZ": "",
+            "llmModel": "chatOllama"
+          }
+        },
+        "outputAnchors": [
+          {
+            "id": "llmAgentflow_0-output-llmAgentflow",
+            "label": "LLM",
+            "name": "llmAgentflow"
+          }
+        ],
+        "outputs": {},
+        "selected": false
+      },
+      "type": "agentFlow",
+      "width": 218,
+      "height": 71,
+      "selected": false,
+      "positionAbsolute": {
+        "x": -29.599366058249387,
+        "y": 48.63628105008668
+      },
+      "dragging": false
+    }
+  ],
+  "edges": [
+    {
+      "source": "startAgentflow_0",
+      "sourceHandle": "startAgentflow_0-output-startAgentflow",
+      "target": "llmAgentflow_0",
+      "targetHandle": "llmAgentflow_0",
+      "data": {
+        "sourceColor": "#7EE787",
+        "targetColor": "#64B5F6",
+        "isHumanInput": false
+      },
+      "type": "agentFlow",
+      "id": "startAgentflow_0-startAgentflow_0-output-startAgentflow-llmAgentflow_0-llmAgentflow_0"
+    }
+  ]
+}

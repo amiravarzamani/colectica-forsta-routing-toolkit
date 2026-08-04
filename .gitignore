@@ -1,0 +1,12 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+Understanding_Society_Mainstage_Wave_18_Questionnaire_-_Version_1.json
+.env
+media/
+graphify-out/
+.claude/settings.json
+mcp_server/certs/
+db.sqlite3
+

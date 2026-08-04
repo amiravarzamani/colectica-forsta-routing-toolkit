@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Questionnaire Modules</title>
+    <style>
+        :root {
+            --bg: #f3f4f6;
+            --panel: #ffffff;
+            --text: #111827;
+            --muted: #6b7280;
+            --border: #e5e7eb;
+            --header: #f9fafb;
+            --dark: #1f2937;
+            --blue: #2563eb;
+            --green: #047857;
+            --purple: #7c3aed;
+            --red: #991b1b;
+            --shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .page {
+            max-width: 1280px;
+            margin: 32px auto;
+            padding: 0 18px;
+        }
+
+        .container {
+            background: var(--panel);
+            padding: 28px;
+            border-radius: 18px;
+            box-shadow: var(--shadow);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 18px;
+            margin-bottom: 22px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 32px;
+            letter-spacing: -0.02em;
+        }
+
+        .header p {
+            margin: 10px 0 0 0;
+            color: var(--muted);
+            font-size: 15px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+
+        th, td {
+            border-bottom: 1px solid var(--border);
+            padding: 16px 18px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            background: var(--header);
+            color: #374151;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        tr:hover td {
+            background: #fafafa;
+        }
+
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 34px;
+            padding: 8px 12px;
+            background: var(--dark);
+            color: #ffffff;
+            text-decoration: none;
+            border-radius: 9px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+
+        .button-small {
+            min-height: 30px;
+            padding: 7px 10px;
+            font-size: 13px;
+        }
+
+        .secondary-button {
+            background: #6b7280;
+        }
+
+        .graph-button {
+            background: var(--green);
+        }
+
+        .payload-button {
+            background: #4f46e5;
+        }
+
+        .simulator-button {
+            background: var(--blue);
+        }
+
+        .compact-payload-button {
+            background: var(--purple);
+        }
+
+        .logout-button {
+            background: var(--red);
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 999px;
+            background: #eef2ff;
+            color: #3730a3;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .ai-status {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .ai-status-passed {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .ai-status-failed,
+        .ai-status-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .ai-status-not-run {
+            background: #f3f4f6;
+            color: #4b5563;
+        }
+
+        .empty {
+            margin-top: 24px;
+            color: #666666;
+        }
+
+        .compare-panel {
+            margin-top: 22px;
+            padding: 18px 20px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: var(--header);
+        }
+
+        .compare-panel h2 {
+            margin: 0 0 6px 0;
+            font-size: 18px;
+        }
+
+        .compare-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-top: 12px;
+        }
+
+        .compare-controls select {
+            padding: 8px 10px;
+            border-radius: 9px;
+            border: 1px solid var(--border);
+            font-size: 14px;
+            min-width: 220px;
+        }
+
+        .messages {
+            margin-top: 16px;
+        }
+
+        .message {
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: #ecfdf5;
+            color: #065f46;
+            margin-bottom: 8px;
+        }
+
+        .module-link {
+            font-weight: 700;
+            color: #111827;
+            text-decoration: none;
+            font-size: 16px;
+        }
+
+        .module-link:hover {
+            text-decoration: underline;
+        }
+
+        .muted {
+            color: var(--muted);
+            font-size: 13px;
+            margin-top: 5px;
+            word-break: break-all;
+        }
+
+        .review-date {
+            color: var(--muted);
+            font-size: 13px;
+            margin-top: 6px;
+            line-height: 1.35;
+        }
+
+        .actions-cell {
+            min-width: 190px;
+        }
+
+        .primary-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .more-actions {
+            margin-top: 8px;
+            display: inline-block;
+            position: relative;
+        }
+
+        .more-actions summary {
+            list-style: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 30px;
+            padding: 7px 10px;
+            background: #f3f4f6;
+            color: #111827;
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            cursor: pointer;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        .more-actions summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .more-actions summary::after {
+            content: "▾";
+            margin-left: 7px;
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .more-actions[open] summary {
+            background: #e5e7eb;
+        }
+
+        .more-actions-menu {
+            margin-top: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            max-width: 360px;
+        }
+
+        @media (max-width: 900px) {
+            .container {
+                padding: 18px;
+            }
+
+            .header {
+                flex-direction: column;
+            }
+
+            table, thead, tbody, th, td, tr {
+                display: block;
+            }
+
+            thead {
+                display: none;
+            }
+
+            tr {
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                margin-bottom: 14px;
+                overflow: hidden;
+            }
+
+            td {
+                border-bottom: none;
+                padding: 10px 12px;
+            }
+
+            td::before {
+                content: attr(data-label);
+                display: block;
+                color: var(--muted);
+                font-size: 12px;
+                font-weight: 700;
+                text-transform: uppercase;
+                margin-bottom: 4px;
+            }
+
+            .actions-cell {
+                min-width: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>Questionnaire Modules</h1>
+                <p>Uploaded Colectica JSON and Forsta+ XML questionnaire modules.</p>
+            </div>
+
+            <div class="header-actions">
+                {% if request.user.is_staff %}
+                    <a class="button secondary-button" href="{% url 'mcp_server:token_list' %}">
+                        MCP tokens
+                    </a>
+                {% endif %}
+
+                <a class="button" href="{% url 'flowise_questionnaire:module_upload' %}">
+                    Upload module
+                </a>
+
+                <form method="post"
+                      action="{% url 'flowise_questionnaire:logout' %}"
+                      style="display:inline;">
+                    {% csrf_token %}
+                    <button class="button logout-button" type="submit">
+                        Logout
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                    <div class="message">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="compare-panel">
+            <h2>Compare routing: Colectica vs Forsta+</h2>
+
+            {% if colectica_modules and forsta_modules %}
+                <p class="muted">
+                    Pick one Colectica JSON module and one Forsta+ XML module to compare their routing.
+                </p>
+
+                <div class="compare-controls">
+                    <select id="colectica-module-select">
+                        <option value="">Select Colectica module…</option>
+                        {% for module in colectica_modules %}
+                            <option value="{{ module.id }}">{{ module.name }} ({{ module.version|default:"-" }})</option>
+                        {% endfor %}
+                    </select>
+
+                    <select id="forsta-module-select">
+                        <option value="">Select Forsta+ module…</option>
+                        {% for module in forsta_modules %}
+                            <option value="{{ module.id }}">{{ module.name }} ({{ module.version|default:"-" }})</option>
+                        {% endfor %}
+                    </select>
+
+                    <button type="button" class="button" onclick="goToRoutingDiff()">
+                        Compare routing
+                    </button>
+                </div>
+
+                {% url 'flowise_questionnaire:routing_diff_report' colectica_module_id='00000000-0000-0000-0000-000000000000' forsta_module_id='11111111-1111-1111-1111-111111111111' as routing_diff_url_template %}
+                <script>
+                    function goToRoutingDiff() {
+                        const colecticaId = document.getElementById('colectica-module-select').value;
+                        const forstaId = document.getElementById('forsta-module-select').value;
+
+                        if (!colecticaId || !forstaId) {
+                            alert('Select one Colectica module and one Forsta+ module.');
+                            return;
+                        }
+
+                        const url = "{{ routing_diff_url_template }}"
+                            .replace('00000000-0000-0000-0000-000000000000', colecticaId)
+                            .replace('11111111-1111-1111-1111-111111111111', forstaId);
+
+                        window.location.href = url;
+                    }
+                </script>
+            {% else %}
+                <p class="muted">
+                    Upload at least one Colectica JSON module and one Forsta+ XML module to compare their routing.
+                </p>
+            {% endif %}
+        </div>
+
+        {% if module_rows %}
+            <table>
+                <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Version</th>
+                    <th>Status</th>
+                    <th>AI review</th>
+                    <th>Uploaded</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+
+                <tbody>
+                {% for row in module_rows %}
+                    {% with module=row.module latest_ai_review=row.latest_ai_review %}
+                        <tr>
+                            <td data-label="Name">
+                                <a class="module-link"
+                                   href="{% url 'flowise_questionnaire:module_detail' module.id %}">
+                                    {{ module.name }}
+                                </a>
+                                <div class="muted">{{ module.id }}</div>
+                            </td>
+
+                            <td data-label="Version">{{ module.version|default:"-" }}</td>
+
+                            <td data-label="Status">
+                                <span class="status">{{ module.processing_status }}</span>
+                            </td>
+
+                            <td data-label="AI review">
+                                {% if latest_ai_review %}
+                                    {% if latest_ai_review.status == "passed" %}
+                                        <span class="ai-status ai-status-passed">Passed</span>
+                                    {% elif latest_ai_review.status == "failed" %}
+                                        <span class="ai-status ai-status-failed">Failed</span>
+                                    {% else %}
+                                        <span class="ai-status ai-status-error">Error</span>
+                                    {% endif %}
+
+                                    <div class="review-date">
+                                        {{ latest_ai_review.created_at }}
+                                    </div>
+                                {% else %}
+                                    <span class="ai-status ai-status-not-run">Not run</span>
+                                {% endif %}
+                            </td>
+
+                            <td data-label="Uploaded">{{ module.created_at }}</td>
+
+                            <td data-label="Actions" class="actions-cell">
+                                <div class="primary-actions">
+                                    <a class="button button-small"
+                                       href="{% url 'flowise_questionnaire:module_detail' module.id %}">
+                                        Open
+                                    </a>
+
+                                    <a class="button button-small payload-button"
+                                       href="{% url 'flowise_questionnaire:module_agentflow_payload' module.id %}"
+                                       target="_blank"
+                                       rel="noopener noreferrer">
+                                        Full payload
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endwith %}
+                {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="empty">
+                No questionnaire modules uploaded yet.
+            </div>
+        {% endif %}
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,1181 @@
+{% load json_format %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ module.name }}</title>
+    <style>
+        :root {
+            --bg: #f3f4f6;
+            --panel: #ffffff;
+            --text: #111827;
+            --muted: #6b7280;
+            --border: #e5e7eb;
+            --header: #f9fafb;
+            --dark: #111827;
+            --blue: #2563eb;
+            --green: #047857;
+            --red: #991b1b;
+            --shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        body.is-busy {
+            cursor: wait;
+        }
+
+        body.is-busy button,
+        body.is-busy a {
+            pointer-events: none;
+        }
+
+        .page {
+            max-width: 1220px;
+            margin: 32px auto;
+            padding: 0 18px;
+        }
+
+        .container {
+            background: var(--panel);
+            padding: 28px;
+            border-radius: 18px;
+            box-shadow: var(--shadow);
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 18px;
+            margin-bottom: 20px;
+        }
+
+        .page-header h1 {
+            margin: 0;
+            font-size: 32px;
+            letter-spacing: -0.02em;
+        }
+
+        .page-header p {
+            margin: 10px 0 0 0;
+            color: var(--muted);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .meta {
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            gap: 10px 14px;
+            margin-top: 20px;
+            padding: 16px;
+            background: #f9fafb;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+
+        .label {
+            font-weight: bold;
+            color: #374151;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 999px;
+            background: #eef2ff;
+            color: #3730a3;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .btn-primary,
+        .btn-secondary,
+        .btn-outline,
+        .btn-danger {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 38px;
+            padding: 9px 14px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            line-height: 1.2;
+            text-decoration: none;
+            cursor: pointer;
+            white-space: nowrap;
+            border: 1px solid transparent;
+        }
+
+        .btn-primary {
+            background: var(--blue);
+            color: #ffffff;
+            box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
+        }
+
+        .btn-secondary {
+            background: var(--dark);
+            color: #ffffff;
+        }
+
+        .btn-outline {
+            background: #ffffff;
+            color: #374151;
+            border-color: var(--border);
+        }
+
+        .btn-outline:hover {
+            background: #f9fafb;
+            border-color: #cbd5e1;
+        }
+
+        .btn-danger {
+            background: var(--red);
+            color: #ffffff;
+        }
+
+        .btn-small {
+            min-height: 34px;
+            padding: 7px 11px;
+            font-size: 13px;
+        }
+
+        .module-actions {
+            margin-top: 24px;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: #ffffff;
+            overflow: hidden;
+        }
+
+        .primary-actions {
+            padding: 18px;
+            background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .primary-actions h2 {
+            margin: 0;
+            font-size: 18px;
+            letter-spacing: -0.01em;
+        }
+
+        .primary-actions p {
+            margin: 6px 0 0 0;
+            color: var(--muted);
+            line-height: 1.45;
+            font-size: 14px;
+        }
+
+        .workflow-actions-three {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .workflow-card {
+            padding: 18px;
+            border-right: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .workflow-card:nth-child(3n) {
+            border-right: none;
+        }
+
+        .workflow-card h3 {
+            margin: 0 0 6px 0;
+            font-size: 15px;
+            color: #111827;
+        }
+
+        .workflow-card p {
+            margin: 0 0 14px 0;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        .inline-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .inline-actions form {
+            display: inline;
+        }
+
+        .ai-review-panel {
+            margin-top: 20px;
+            padding: 18px;
+            border-radius: 12px;
+            background: #f5f3ff;
+            border: 1px solid #ddd6fe;
+        }
+
+        .ai-review-panel h3 {
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+
+        .ai-review-description {
+            margin-top: 0;
+            color: #4b5563;
+            line-height: 1.5;
+        }
+
+        .ai-status {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .ai-status-passed {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .ai-status-failed {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .ai-status-running {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .ai-review-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .ai-review-card {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+        }
+
+        .ai-review-card h4 {
+            margin: 0 0 8px 0;
+            color: #111827;
+        }
+
+        .ai-review-card p {
+            margin: 6px 0;
+            color: #374151;
+        }
+
+        .ai-review-list {
+            margin: 8px 0 0 18px;
+            padding: 0;
+        }
+
+        .ai-review-list li {
+            margin-bottom: 6px;
+        }
+
+        .ai-review-technical {
+            margin-top: 16px;
+        }
+
+        .ai-review-technical summary {
+            cursor: pointer;
+            font-weight: bold;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+
+        .ai-json {
+            white-space: pre-wrap;
+            overflow-x: auto;
+            background: #111827;
+            color: #e5e7eb;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            max-height: 520px;
+        }
+
+        .saved-ai-review {
+            margin-top: 24px;
+            padding: 18px;
+            border-radius: 12px;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+        }
+
+        .saved-ai-review h2 {
+            margin-top: 0;
+        }
+
+        .saved-ai-review-meta {
+            color: #4b5563;
+            margin-top: 4px;
+        }
+
+        .saved-ai-review-empty {
+            margin-top: 24px;
+            padding: 14px;
+            border-radius: 10px;
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            color: #92400e;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+            margin-bottom: 24px;
+            background: #ffffff;
+        }
+
+        th, td {
+            border-bottom: 1px solid var(--border);
+            padding: 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            background: var(--header);
+            color: #374151;
+        }
+
+        .messages {
+            margin-top: 16px;
+        }
+
+        .message {
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: #ecfdf5;
+            color: #065f46;
+            margin-bottom: 8px;
+        }
+
+        .graph-card {
+            margin-top: 16px;
+            margin-bottom: 24px;
+            padding: 16px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: #f9fafb;
+        }
+
+        .graph-stats {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+            margin-bottom: 14px;
+        }
+
+        .stat {
+            padding: 10px 12px;
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .stat strong {
+            display: block;
+            color: #111827;
+            font-size: 18px;
+        }
+
+        .stat span {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .section-title {
+            margin-top: 32px;
+            margin-bottom: 8px;
+        }
+
+        .section-description {
+            margin-top: 0;
+            color: var(--muted);
+        }
+
+        .raw-json-details {
+            margin-top: 32px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: #f9fafb;
+        }
+
+        .raw-json-details summary {
+            padding: 14px 16px;
+            cursor: pointer;
+            font-weight: 700;
+            color: #111827;
+        }
+
+        .raw-json-details pre {
+            margin: 0 16px 16px 16px;
+            background: #111827;
+            color: #e5e7eb;
+            padding: 16px;
+            border-radius: 8px;
+            overflow: auto;
+            max-height: 520px;
+            white-space: pre-wrap;
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        .page-busy-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(17, 24, 39, 0.48);
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .page-busy-overlay.is-visible {
+            display: flex;
+        }
+
+        .page-busy-card {
+            width: min(420px, 100%);
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+            border: 1px solid var(--border);
+            padding: 22px;
+            text-align: center;
+        }
+
+        .page-busy-spinner {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            border: 4px solid #e5e7eb;
+            border-top-color: var(--blue);
+            margin: 0 auto 14px auto;
+            animation: page-busy-spin 0.8s linear infinite;
+        }
+
+        .page-busy-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+
+        .page-busy-message {
+            font-size: 14px;
+            color: var(--muted);
+            line-height: 1.45;
+        }
+
+        @keyframes page-busy-spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 760px) {
+            .container {
+                padding: 18px;
+            }
+
+            .page-header {
+                flex-direction: column;
+            }
+
+            .meta {
+                grid-template-columns: 1fr;
+            }
+
+            .workflow-actions-three {
+                grid-template-columns: 1fr;
+            }
+
+            .workflow-card {
+                border-right: none;
+            }
+
+            .label {
+                margin-top: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="page-busy-overlay" class="page-busy-overlay" aria-hidden="true">
+    <div class="page-busy-card" role="status" aria-live="polite">
+        <div class="page-busy-spinner"></div>
+        <div class="page-busy-title">Running AI review</div>
+        <div id="page-busy-message" class="page-busy-message">
+            Please wait while the Flowise review is running.
+        </div>
+    </div>
+</div>
+
+<div class="page">
+    <div class="container">
+        <div class="page-header">
+            <div>
+                <h1>{{ module.name }}</h1>
+                <p>Questionnaire module detail page.</p>
+            </div>
+
+            <div class="header-actions">
+                <a class="btn-outline" href="{% url 'flowise_questionnaire:module_list' %}">
+                    Back to modules
+                </a>
+
+                <form method="post"
+                      action="{% url 'flowise_questionnaire:logout' %}"
+                      style="display:inline;">
+                    {% csrf_token %}
+                    <button class="btn-danger" type="submit">
+                        Logout
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                    <div class="message">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="meta">
+            <div class="label">Module ID</div>
+            <div>{{ module.id }}</div>
+
+            <div class="label">Version</div>
+            <div>{{ module.version|default:"-" }}</div>
+
+            <div class="label">Status</div>
+            <div><span class="status">{{ module.processing_status }}</span></div>
+
+            <div class="label">Uploaded by</div>
+            <div>{{ module.user.username }}</div>
+
+            <div class="label">Created</div>
+            <div>{{ module.created_at }}</div>
+
+            <div class="label">Updated</div>
+            <div>{{ module.updated_at }}</div>
+        </div>
+
+        <div class="module-actions">
+            <div class="primary-actions">
+                <div>
+                    <h2>Module workspace</h2>
+                    <p>Use the actions below to test, build, and review this questionnaire module. Each action appears only once on this page.</p>
+                </div>
+            </div>
+
+            <div class="workflow-actions-three">
+                <div class="workflow-card">
+                    <h3>Test and inspect</h3>
+                    <p>Run a respondent-style interview, inspect the graph, or review deterministic routing output.</p>
+                    <div class="inline-actions">
+                        <a class="btn-primary btn-small"
+                           href="{% url 'flowise_questionnaire:interview_simulator_page' module.id %}">
+                            Open interview simulator
+                        </a>
+
+                        {% if graph %}
+                            <a class="btn-outline btn-small"
+                               href="{% url 'flowise_questionnaire:module_graph' module.id %}">
+                                View graph
+                            </a>
+                        {% endif %}
+
+                        <a class="btn-outline btn-small"
+                           href="{% url 'flowise_questionnaire:module_routing_simulation' module.id %}"
+                           target="_blank"
+                           rel="noopener noreferrer">
+                            Routing simulation
+                        </a>
+                    </div>
+                </div>
+
+                <div class="workflow-card">
+                    <h3>Build data</h3>
+                    <p>Rebuild extracted schema, routing edges, and the deterministic graph after source changes.</p>
+                    <div class="inline-actions">
+                        <form method="post"
+                              action="{% url 'flowise_questionnaire:module_build_all' module.id %}">
+                            {% csrf_token %}
+                            <button class="btn-outline btn-small" type="submit">Extract Schema, Routing &amp; Graph</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="workflow-card">
+                    <h3>AI routing review</h3>
+                    <p>Run the Flowise-assisted routing review or open the saved review history.</p>
+                    <div class="inline-actions">
+                        <form id="ai-review-form"
+                              method="post"
+                              action="{% url 'flowise_questionnaire:module_run_flowise_review' module.id %}">
+                            {% csrf_token %}
+                            <button class="btn-secondary btn-small" type="submit">
+                                Run AI review
+                            </button>
+                        </form>
+
+                        <a class="btn-outline btn-small"
+                           href="{% url 'flowise_questionnaire:module_ai_review_history' module.id %}">
+                            Review history
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if latest_ai_review %}
+            <div class="saved-ai-review">
+                <h2>Latest saved AI Routing & Coverage Review</h2>
+                <p class="saved-ai-review-meta">
+                    Saved review ID {{ latest_ai_review.id }} ·
+                    Status:
+                    {% if latest_ai_review.status == "passed" %}
+                        <span class="ai-status ai-status-passed">Passed</span>
+                    {% elif latest_ai_review.status == "failed" %}
+                        <span class="ai-status ai-status-failed">Failed</span>
+                    {% else %}
+                        <span class="ai-status ai-status-failed">Error</span>
+                    {% endif %}
+                    · Created {{ latest_ai_review.created_at }}
+                </p>
+
+                <p class="ai-review-description">
+                    This is the latest stored AI-assisted review for this module.
+                    Click <strong>Run AI routing review</strong> to create a new review.
+                </p>
+
+                <div class="ai-review-grid">
+                    <div class="ai-review-card">
+                        <h4>AI review</h4>
+                        <p><strong>Schema:</strong> {{ latest_ai_review.review_json.schema_review.status|default:"-" }}</p>
+                        <p><strong>Routing:</strong> {{ latest_ai_review.review_json.routing_review.status|default:"-" }}</p>
+                        <p><strong>Coverage:</strong> {{ latest_ai_review.review_json.coverage_intent_review.status|default:"-" }}</p>
+                    </div>
+
+                    <div class="ai-review-card">
+                        <h4>Coverage</h4>
+                        <p><strong>Coverage intents:</strong> {{ latest_ai_review.review_json.coverage_intent_review.intent_count|default:"-" }}</p>
+                        <p><strong>Conditional edges:</strong> {{ latest_ai_review.review_json.routing_review.conditional_edge_count|default:"-" }}</p>
+                        <p>
+                            <strong>Covered edges:</strong>
+                            {% if latest_ai_review.review_json.coverage_intent_review.covered_conditional_edges %}
+                                {{ latest_ai_review.review_json.coverage_intent_review.covered_conditional_edges|join:", " }}
+                            {% else %}
+                                None
+                            {% endif %}
+                        </p>
+                        <p>
+                            <strong>Uncovered edges:</strong>
+                            {% if latest_ai_review.review_json.coverage_intent_review.possibly_uncovered_conditional_edges %}
+                                {{ latest_ai_review.review_json.coverage_intent_review.possibly_uncovered_conditional_edges|join:", " }}
+                            {% else %}
+                                None
+                            {% endif %}
+                        </p>
+                    </div>
+
+                    <div class="ai-review-card">
+                        <h4>Django post-validation</h4>
+                        <p>
+                            <strong>Status:</strong>
+                            {% if latest_ai_review.post_validation_json.passed %}
+                                Passed
+                            {% else %}
+                                Failed
+                            {% endif %}
+                        </p>
+                        <p><strong>Errors:</strong> {{ latest_ai_review.post_validation_json.errors|length }}</p>
+                        <p><strong>Warnings:</strong> {{ latest_ai_review.post_validation_json.warnings|length }}</p>
+                    </div>
+
+                    <div class="ai-review-card">
+                        <h4>External variables</h4>
+                        <p>
+                            {% if latest_ai_review.review_json.routing_review.external_variables %}
+                                {{ latest_ai_review.review_json.routing_review.external_variables|join:", " }}
+                            {% else %}
+                                None
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="ai-review-card" style="margin-top:12px;">
+                    <h4>Post-validation errors</h4>
+                    {% if latest_ai_review.post_validation_json.errors %}
+                        <ul class="ai-review-list">
+                            {% for error in latest_ai_review.post_validation_json.errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p>No post-validation errors.</p>
+                    {% endif %}
+                </div>
+
+                <div class="ai-review-card" style="margin-top:12px;">
+                    <h4>Post-validation warnings</h4>
+                    {% if latest_ai_review.post_validation_json.warnings %}
+                        <ul class="ai-review-list">
+                            {% for warning in latest_ai_review.post_validation_json.warnings %}
+                                <li>{{ warning }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p>No post-validation warnings.</p>
+                    {% endif %}
+                </div>
+
+                <div class="ai-review-card" style="margin-top:12px;">
+                    <h4>Suggested improvements</h4>
+                    {% if latest_ai_review.review_json.suggested_improvements %}
+                        <ul class="ai-review-list">
+                            {% for improvement in latest_ai_review.review_json.suggested_improvements %}
+                                <li>{{ improvement.message|default:improvement }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p>No suggested improvements.</p>
+                    {% endif %}
+                </div>
+
+                <details class="ai-review-technical">
+                    <summary>Show saved technical JSON</summary>
+
+                    <h4>Review JSON</h4>
+                    <pre class="ai-json">{{ latest_ai_review.review_json|pretty_json }}</pre>
+
+                    <h4>Post-validation JSON</h4>
+                    <pre class="ai-json">{{ latest_ai_review.post_validation_json|pretty_json }}</pre>
+                </details>
+            </div>
+        {% else %}
+            <div class="saved-ai-review-empty">
+                No saved AI routing review yet. Click <strong>Run AI routing review</strong> to create one.
+            </div>
+        {% endif %}
+
+        <div id="ai-review-panel" class="ai-review-panel" style="display:none;">
+            <h3>AI Routing & Coverage Review</h3>
+            <p class="ai-review-description">
+                This AI-assisted review checks the extracted questionnaire schema, routing rules,
+                and deterministic coverage intents. Django remains the source of truth and
+                post-validates the AI response before displaying it.
+            </p>
+
+            <p>
+                Overall status:
+                <span id="ai-review-status" class="ai-status ai-status-running">
+                    Not run
+                </span>
+            </p>
+
+            <div id="ai-review-readable"></div>
+
+            <details class="ai-review-technical">
+                <summary>Show technical JSON result</summary>
+                <pre id="ai-review-json" class="ai-json"></pre>
+            </details>
+        </div>
+
+        <h2 class="section-title">Extracted questions</h2>
+
+        {% if questions %}
+            <p class="section-description">{{ question_count }} questions extracted.</p>
+
+            <table>
+                <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Question name</th>
+                    <th>Type</th>
+                    <th>Label</th>
+                    <th>Options</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for question in questions %}
+                    <tr>
+                        <td>{{ question.sequence_index }}</td>
+                        <td><strong>{{ question.name }}</strong></td>
+                        <td>{{ question.question_type }}</td>
+                        <td>{{ question.label|default:"-" }}</td>
+                        <td>{{ question.options_json|length }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No questions extracted yet.</p>
+        {% endif %}
+
+        <h2 class="section-title">Extracted routing edges</h2>
+
+        {% if routing_edges %}
+            <p class="section-description">{{ routing_edge_count }} routing edges extracted.</p>
+
+            <table>
+                <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Source question</th>
+                    <th>Target question</th>
+                    <th>Type</th>
+                    <th>Condition</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for edge in routing_edges %}
+                    <tr>
+                        <td>{{ edge.sequence_index }}</td>
+                        <td><strong>{{ edge.source_question|default:"-" }}</strong></td>
+                        <td><strong>{{ edge.target_question }}</strong></td>
+                        <td>{{ edge.edge_type }}</td>
+                        <td><code>{{ edge.condition_text|default:"-" }}</code></td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>No routing edges extracted yet.</p>
+        {% endif %}
+
+        <h2 class="section-title">Routing graph</h2>
+
+        {% if graph %}
+            <div class="graph-card">
+                <p>The graphical routing graph has been generated.</p>
+
+                <div class="graph-stats">
+                    <div class="stat">
+                        <strong>{{ graph.nodes_json|length }}</strong>
+                        <span>nodes</span>
+                    </div>
+
+                    <div class="stat">
+                        <strong>{{ graph.edges_json|length }}</strong>
+                        <span>edges</span>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <p>No graph generated yet.</p>
+        {% endif %}
+
+        <details class="raw-json-details">
+            <summary>Raw JSON preview</summary>
+            {% if raw_json_truncated %}
+                <p>
+                    This module's JSON is too large to preview in full.
+                    Showing the first {{ raw_json_preview|length }} characters.
+                    {% if module.uploaded_file %}
+                        <a href="{{ module.uploaded_file.url }}" target="_blank" rel="noopener noreferrer">Download the original file</a>
+                        to view it in full.
+                    {% endif %}
+                </p>
+            {% endif %}
+            <pre>{{ raw_json_preview }}</pre>
+        </details>
+    </div>
+</div>
+
+<script>
+(function () {
+    const forms = [
+        document.getElementById("ai-review-form"),
+        document.getElementById("ai-review-form-graph")
+    ].filter(Boolean);
+
+    const panel = document.getElementById("ai-review-panel");
+    const statusEl = document.getElementById("ai-review-status");
+    const readableEl = document.getElementById("ai-review-readable");
+    const jsonEl = document.getElementById("ai-review-json");
+    const busyOverlay = document.getElementById("page-busy-overlay");
+    const busyMessage = document.getElementById("page-busy-message");
+
+    if (!forms.length || !panel || !statusEl || !readableEl || !jsonEl) {
+        return;
+    }
+
+    let aiReviewRunning = false;
+
+    function setPageBusy(isBusy, message) {
+        aiReviewRunning = isBusy;
+
+        document.body.classList.toggle("is-busy", isBusy);
+
+        if (busyOverlay) {
+            busyOverlay.classList.toggle("is-visible", isBusy);
+            busyOverlay.setAttribute("aria-hidden", isBusy ? "false" : "true");
+        }
+
+        if (busyMessage && message) {
+            busyMessage.textContent = message;
+        }
+
+        forms.forEach(function (form) {
+            const button = form.querySelector("button[type='submit']");
+
+            if (button) {
+                button.disabled = isBusy;
+            }
+        });
+    }
+
+    function setStatus(text, cssClass) {
+        statusEl.textContent = text;
+        statusEl.className = "ai-status " + cssClass;
+    }
+
+    function escapeHtml(value) {
+        return String(value)
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+
+    function renderList(items, emptyText) {
+        if (!items || !items.length) {
+            return `<p>${escapeHtml(emptyText)}</p>`;
+        }
+
+        return `
+            <ul class="ai-review-list">
+                ${items.map(function (item) {
+                    if (typeof item === "string") {
+                        return `<li>${escapeHtml(item)}</li>`;
+                    }
+
+                    if (item && typeof item === "object") {
+                        const message = item.message || JSON.stringify(item);
+                        return `<li>${escapeHtml(message)}</li>`;
+                    }
+
+                    return `<li>${escapeHtml(item)}</li>`;
+                }).join("")}
+            </ul>
+        `;
+    }
+
+    function renderReadableResult(data) {
+        const moduleData = data.module || {};
+        const review = data.review || {};
+        const postValidation = data.post_validation || {};
+
+        const schemaReview = review.schema_review || {};
+        const routingReview = review.routing_review || {};
+        const coverageReview = review.coverage_intent_review || {};
+
+        const realQuestionNames = schemaReview.real_question_names || [];
+        const externalVariables = routingReview.external_variables || [];
+        const coveredEdges = coverageReview.covered_conditional_edges || [];
+        const uncoveredEdges = coverageReview.possibly_uncovered_conditional_edges || [];
+        const postErrors = postValidation.errors || [];
+        const postWarnings = postValidation.warnings || [];
+        const suggestedImprovements = review.suggested_improvements || [];
+
+        const coveredText = coveredEdges.length ? coveredEdges.join(", ") : "None";
+        const uncoveredText = uncoveredEdges.length ? uncoveredEdges.join(", ") : "None";
+        const externalText = externalVariables.length ? externalVariables.join(", ") : "None";
+
+        return `
+            <div class="ai-review-grid">
+                <div class="ai-review-card">
+                    <h4>Module</h4>
+                    <p><strong>Name:</strong> ${escapeHtml(moduleData.name || "-")}</p>
+                    <p><strong>Version:</strong> ${escapeHtml(moduleData.version || "-")}</p>
+                    <p><strong>Questions reviewed:</strong> ${realQuestionNames.length}</p>
+                </div>
+
+                <div class="ai-review-card">
+                    <h4>AI review</h4>
+                    <p><strong>Schema:</strong> ${escapeHtml(schemaReview.status || "-")}</p>
+                    <p><strong>Routing:</strong> ${escapeHtml(routingReview.status || "-")}</p>
+                    <p><strong>Coverage:</strong> ${escapeHtml(coverageReview.status || "-")}</p>
+                </div>
+
+                <div class="ai-review-card">
+                    <h4>Coverage</h4>
+                    <p><strong>Coverage intents:</strong> ${escapeHtml(coverageReview.intent_count ?? "-")}</p>
+                    <p><strong>Conditional edges:</strong> ${escapeHtml(routingReview.conditional_edge_count ?? "-")}</p>
+                    <p><strong>Covered edges:</strong> ${escapeHtml(coveredText)}</p>
+                    <p><strong>Uncovered edges:</strong> ${escapeHtml(uncoveredText)}</p>
+                </div>
+
+                <div class="ai-review-card">
+                    <h4>Django post-validation</h4>
+                    <p><strong>Status:</strong> ${postValidation.passed ? "Passed" : "Failed"}</p>
+                    <p><strong>Errors:</strong> ${postErrors.length}</p>
+                    <p><strong>Warnings:</strong> ${postWarnings.length}</p>
+                </div>
+            </div>
+
+            <div class="ai-review-card" style="margin-top:12px;">
+                <h4>External variables</h4>
+                <p>${escapeHtml(externalText)}</p>
+            </div>
+
+            <div class="ai-review-card" style="margin-top:12px;">
+                <h4>Post-validation errors</h4>
+                ${renderList(postErrors, "No post-validation errors.")}
+            </div>
+
+            <div class="ai-review-card" style="margin-top:12px;">
+                <h4>Post-validation warnings</h4>
+                ${renderList(postWarnings, "No post-validation warnings.")}
+            </div>
+
+            <div class="ai-review-card" style="margin-top:12px;">
+                <h4>Suggested improvements</h4>
+                ${renderList(suggestedImprovements, "No suggested improvements.")}
+            </div>
+        `;
+    }
+
+    async function runAiReview(form) {
+        if (aiReviewRunning) {
+            return;
+        }
+
+        panel.style.display = "block";
+        panel.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+        });
+
+        readableEl.innerHTML = `
+            <div class="ai-review-card">
+                <h4>Running AI review</h4>
+                <p>The request has been sent to Django and Flowise. This can take some time.</p>
+            </div>
+        `;
+        jsonEl.textContent = "";
+        setStatus("Running...", "ai-status-running");
+
+        const submitButton = form.querySelector("button[type='submit']");
+        const originalButtonText = submitButton ? submitButton.textContent : "";
+
+        if (submitButton) {
+            submitButton.textContent = "Running AI review...";
+        }
+
+        setPageBusy(
+            true,
+            "Django is calling Flowise and validating the result. Please wait until the review completes."
+        );
+
+        try {
+            const response = await fetch(form.action, {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": form.querySelector("[name=csrfmiddlewaretoken]").value,
+                    "Accept": "application/json"
+                }
+            });
+
+            let data = {};
+
+            try {
+                data = await response.json();
+            } catch (jsonError) {
+                data = {
+                    error: "The server returned a non-JSON response.",
+                    detail: String(jsonError)
+                };
+            }
+
+            jsonEl.textContent = JSON.stringify(data, null, 2);
+
+            if (!response.ok) {
+                setStatus("Failed", "ai-status-failed");
+                readableEl.innerHTML = `
+                    <div class="ai-review-card">
+                        <h4>AI review failed</h4>
+                        <p><strong>Message:</strong> ${escapeHtml(data.error || "Request failed")}</p>
+                        <p><strong>Detail:</strong> ${escapeHtml(data.detail || "")}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const postValidation = data.post_validation || {};
+
+            if (postValidation.passed) {
+                setStatus("Passed", "ai-status-passed");
+            } else {
+                setStatus("Failed validation", "ai-status-failed");
+            }
+
+            readableEl.innerHTML = renderReadableResult(data);
+        } catch (error) {
+            setStatus("Failed", "ai-status-failed");
+            readableEl.innerHTML = `
+                <div class="ai-review-card">
+                    <h4>AI review failed</h4>
+                    <p>${escapeHtml(error)}</p>
+                </div>
+            `;
+        } finally {
+            setPageBusy(false);
+
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = originalButtonText || "Run AI review";
+            }
+        }
+    }
+
+    forms.forEach(function (form) {
+        form.addEventListener("submit", function (event) {
+            event.preventDefault();
+
+            if (aiReviewRunning) {
+                return;
+            }
+
+            runAiReview(form);
+        });
+    });
+})();
+</script>
+</body>
+</html>
