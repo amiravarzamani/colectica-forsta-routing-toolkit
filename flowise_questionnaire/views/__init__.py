@@ -30,6 +30,11 @@ from .routing_diff_views import (
     routing_diff_report_view,
     routing_diff_run_view,
 )
+from .version_diff_views import (
+    version_diff_discrepancy_detail_view,
+    version_diff_report_view,
+    version_diff_run_view,
+)
 
 __all__ = [
     "questionnaire_login_view",
@@ -62,4 +67,8 @@ __all__ = [
     "routing_diff_discrepancy_detail_view",
     "routing_diff_report_view",
     "routing_diff_run_view",
+
+    "version_diff_discrepancy_detail_view",
+    "version_diff_report_view",
+    "version_diff_run_view",
 ]

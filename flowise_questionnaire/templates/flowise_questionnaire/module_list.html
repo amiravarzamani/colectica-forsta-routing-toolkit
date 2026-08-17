@@ -441,6 +441,64 @@
             {% endif %}
         </div>
 
+        <div class="compare-panel">
+            <h2>Compare routing: Colectica vs Colectica (version diff)</h2>
+
+            {% if colectica_modules|length > 1 %}
+                <p class="muted">
+                    Pick a base Colectica module and a compare Colectica module (e.g. two waves/versions
+                    of the same questionnaire) to compare their routing.
+                </p>
+
+                <div class="compare-controls">
+                    <select id="base-module-select">
+                        <option value="">Select base module…</option>
+                        {% for module in colectica_modules %}
+                            <option value="{{ module.id }}">{{ module.name }} ({{ module.version|default:"-" }})</option>
+                        {% endfor %}
+                    </select>
+
+                    <select id="compare-module-select">
+                        <option value="">Select compare module…</option>
+                        {% for module in colectica_modules %}
+                            <option value="{{ module.id }}">{{ module.name }} ({{ module.version|default:"-" }})</option>
+                        {% endfor %}
+                    </select>
+
+                    <button type="button" class="button" onclick="goToVersionDiff()">
+                        Compare routing
+                    </button>
+                </div>
+
+                {% url 'flowise_questionnaire:version_diff_report' base_module_id='00000000-0000-0000-0000-000000000000' compare_module_id='11111111-1111-1111-1111-111111111111' as version_diff_url_template %}
+                <script>
+                    function goToVersionDiff() {
+                        const baseId = document.getElementById('base-module-select').value;
+                        const compareId = document.getElementById('compare-module-select').value;
+
+                        if (!baseId || !compareId) {
+                            alert('Select a base module and a compare module.');
+                            return;
+                        }
+                        if (baseId === compareId) {
+                            alert('Choose two different Colectica modules to compare.');
+                            return;
+                        }
+
+                        const url = "{{ version_diff_url_template }}"
+                            .replace('00000000-0000-0000-0000-000000000000', baseId)
+                            .replace('11111111-1111-1111-1111-111111111111', compareId);
+
+                        window.location.href = url;
+                    }
+                </script>
+            {% else %}
+                <p class="muted">
+                    Upload at least two Colectica JSON modules to compare their routing against each other.
+                </p>
+            {% endif %}
+        </div>
+
         {% if module_rows %}
             <table>
                 <thead>

@@ -31,6 +31,10 @@ from flowise_questionnaire.views import (
     routing_diff_discrepancy_detail_view,
     routing_diff_report_view,
     routing_diff_run_view,
+
+    version_diff_discrepancy_detail_view,
+    version_diff_report_view,
+    version_diff_run_view,
 )
 
 app_name = "flowise_questionnaire"
@@ -144,5 +148,21 @@ urlpatterns = [
         "routing-diff/<uuid:colectica_module_id>/<uuid:forsta_module_id>/discrepancy/<uuid:discrepancy_id>/",
         routing_diff_discrepancy_detail_view,
         name="routing_diff_discrepancy_detail",
+    ),
+
+    path(
+        "version-diff/<uuid:base_module_id>/<uuid:compare_module_id>/",
+        version_diff_report_view,
+        name="version_diff_report",
+    ),
+    path(
+        "version-diff/<uuid:base_module_id>/<uuid:compare_module_id>/run/",
+        version_diff_run_view,
+        name="version_diff_run",
+    ),
+    path(
+        "version-diff/<uuid:base_module_id>/<uuid:compare_module_id>/discrepancy/<uuid:discrepancy_id>/",
+        version_diff_discrepancy_detail_view,
+        name="version_diff_discrepancy_detail",
     ),
 ]

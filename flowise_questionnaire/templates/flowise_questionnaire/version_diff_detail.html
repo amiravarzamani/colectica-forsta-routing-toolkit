@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Routing diff detail - {{ focus_question_name }}</title>
+    <title>Version diff detail - {{ focus_question_name }}</title>
 
     <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 
@@ -246,19 +246,19 @@
 <body>
 
 <div class="topbar">
-    <h1>Routing diff detail: {{ focus_question_name }}</h1>
+    <h1>Version diff detail: {{ focus_question_name }}</h1>
     <div>
-        <a href="{% url 'flowise_questionnaire:routing_diff_report' colectica_module.id forsta_module.id %}">Back to routing diff</a>
-        <a href="{% url 'flowise_questionnaire:module_graph' colectica_module.id %}" target="_blank" rel="noopener">Full Colectica graph</a>
-        <a href="{% url 'flowise_questionnaire:module_graph' forsta_module.id %}" target="_blank" rel="noopener">Full Forsta+ graph</a>
+        <a href="{% url 'flowise_questionnaire:version_diff_report' base_module.id compare_module.id %}">Back to version diff</a>
+        <a href="{% url 'flowise_questionnaire:module_graph' base_module.id %}" target="_blank" rel="noopener">Full base graph</a>
+        <a href="{% url 'flowise_questionnaire:module_graph' compare_module.id %}" target="_blank" rel="noopener">Full compare graph</a>
     </div>
 </div>
 
 <div class="container">
     <div class="graphs">
         <div class="graph-panel">
-            <h2>Colectica routing around {{ colectica_focus_question_name }}</h2>
-            <div id="colectica-graph" class="graph-canvas"></div>
+            <h2>Base routing around {{ base_focus_question_name }}</h2>
+            <div id="base-graph" class="graph-canvas"></div>
             <div class="legend">
                 <span class="legend-item"><span class="legend-dot focus-dot"></span>Focus question</span>
                 <span class="legend-item"><span class="legend-dot question-dot"></span>Question</span>
@@ -270,8 +270,8 @@
             </div>
         </div>
         <div class="graph-panel">
-            <h2>Forsta+ routing around {{ forsta_focus_question_name }}</h2>
-            <div id="forsta-graph" class="graph-canvas"></div>
+            <h2>Compare routing around {{ compare_focus_question_name }}</h2>
+            <div id="compare-graph" class="graph-canvas"></div>
             <div class="legend">
                 <span class="legend-item"><span class="legend-dot focus-dot"></span>Focus question</span>
                 <span class="legend-item"><span class="legend-dot question-dot"></span>Question</span>
@@ -291,8 +291,8 @@
             <tr>
                 <th>Severity</th>
                 <th>Type</th>
-                <th>Colectica question</th>
-                <th>Forsta+ question</th>
+                <th>Base question</th>
+                <th>Compare question</th>
                 <th>Details</th>
             </tr>
             </thead>
@@ -303,11 +303,11 @@
                 </td>
                 <td>{{ discrepancy.get_discrepancy_type_display }}</td>
                 <td>
-                    <code>{{ discrepancy.question_match.colectica_question.name }}</code>
+                    <code>{{ discrepancy.question_match.base_question.name }}</code>
                 </td>
                 <td>
-                    {% if discrepancy.question_match.forsta_question %}
-                        <code>{{ discrepancy.question_match.forsta_question.name }}</code>
+                    {% if discrepancy.question_match.compare_question %}
+                        <code>{{ discrepancy.question_match.compare_question.name }}</code>
                     {% else %}
                         <span class="muted">-</span>
                     {% endif %}
@@ -318,14 +318,14 @@
                     {% if explanation.edge %}
                         <div class="edge-block">
                             <div class="edge-line">
-                                <span class="edge-label">{{ explanation.edge.origin_system }} routing edge &mdash; source:</span>
+                                <span class="edge-label">{{ explanation.edge.origin_module }} module routing edge &mdash; source:</span>
                                 <code>{{ explanation.edge.source_question }}</code>
                                 <span class="edge-label">&rarr; target:</span>
                                 <code>{{ explanation.edge.target_question }}</code>
                             </div>
                             {% if explanation.edge.condition_text %}
                                 <div class="edge-line">
-                                    <span class="edge-label">Must hold to fire (raw {{ explanation.edge.origin_system }} condition):</span>
+                                    <span class="edge-label">Must hold to fire (raw {{ explanation.edge.origin_module }}-module condition):</span>
                                     <code>{{ explanation.edge.condition_text }}</code>
                                 </div>
                             {% endif %}
@@ -342,16 +342,16 @@
     </div>
 </div>
 
-{{ colectica_graph|json_script:"colectica-graph-data" }}
-{{ forsta_graph|json_script:"forsta-graph-data" }}
-{{ colectica_focus_question_name|json_script:"colectica-focus-question-name-data" }}
-{{ forsta_focus_question_name|json_script:"forsta-focus-question-name-data" }}
+{{ base_graph|json_script:"base-graph-data" }}
+{{ compare_graph|json_script:"compare-graph-data" }}
+{{ base_focus_question_name|json_script:"base-focus-question-name-data" }}
+{{ compare_focus_question_name|json_script:"compare-focus-question-name-data" }}
 {{ highlight_edge|json_script:"highlight-edge-data" }}
 
 <script>
     (function () {
-        const colecticaFocusName = JSON.parse(document.getElementById("colectica-focus-question-name-data").textContent || "null");
-        const forstaFocusName = JSON.parse(document.getElementById("forsta-focus-question-name-data").textContent || "null");
+        const baseFocusName = JSON.parse(document.getElementById("base-focus-question-name-data").textContent || "null");
+        const compareFocusName = JSON.parse(document.getElementById("compare-focus-question-name-data").textContent || "null");
         const highlightEdge = JSON.parse(document.getElementById("highlight-edge-data").textContent || "null");
 
         function normalize(value) {
@@ -505,11 +505,11 @@
             }
         }
 
-        const colecticaGraph = JSON.parse(document.getElementById("colectica-graph-data").textContent || "null");
-        const forstaGraph = JSON.parse(document.getElementById("forsta-graph-data").textContent || "null");
+        const baseGraph = JSON.parse(document.getElementById("base-graph-data").textContent || "null");
+        const compareGraph = JSON.parse(document.getElementById("compare-graph-data").textContent || "null");
 
-        renderNeighborhoodGraph("colectica-graph", colecticaGraph, colecticaFocusName);
-        renderNeighborhoodGraph("forsta-graph", forstaGraph, forstaFocusName);
+        renderNeighborhoodGraph("base-graph", baseGraph, baseFocusName);
+        renderNeighborhoodGraph("compare-graph", compareGraph, compareFocusName);
     })();
 </script>
 

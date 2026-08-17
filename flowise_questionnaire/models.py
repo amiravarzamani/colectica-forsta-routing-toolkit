@@ -762,3 +762,157 @@ class RoutingDiscrepancy(models.Model):
 
     def __str__(self):
         return f"{self.discrepancy_type} :: {self.question_match}"
+
+
+class QuestionnaireVersionMatch(models.Model):
+    """
+    Links one NormalizedQuestion from a "base" Colectica module to its
+    matched counterpart (or to nothing, when unmatched) in a "compare"
+    Colectica module -- e.g. two waves/versions of the same questionnaire.
+
+    Deliberately separate from QuestionMatch (which pairs a Colectica
+    question with its Forsta+ counterpart): both modules here are Colectica
+    JSON, matched by a different priority (name first, since the same
+    variable name usually persists across versions; text only as fallback),
+    so reusing QuestionMatch's fields/labels would be misleading.
+    """
+
+    class MatchMethod(models.TextChoices):
+        NAME = "name", "Name"
+        EXACT_TEXT = "exact_text", "Exact text"
+        FUZZY_TEXT = "fuzzy_text", "Fuzzy text"
+        MANUAL = "manual", "Manual"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    base_question = models.ForeignKey(
+        NormalizedQuestion,
+        on_delete=models.CASCADE,
+        related_name="base_version_matches",
+    )
+
+    compare_question = models.ForeignKey(
+        NormalizedQuestion,
+        on_delete=models.CASCADE,
+        related_name="compare_version_matches",
+        null=True,
+        blank=True,
+    )
+
+    # Which "compare" module this match attempt was run against -- set even
+    # when compare_question is None (unmatched), same rationale as
+    # QuestionMatch.forsta_module: scopes a re-run's cleanup to one
+    # (base_module, compare_module) pair instead of wiping out every pair
+    # sharing the same base module.
+    compare_module = models.ForeignKey(
+        QuestionnaireModule,
+        on_delete=models.CASCADE,
+        related_name="+",
+        null=True,
+        blank=True,
+    )
+
+    match_score = models.FloatField(default=0.0)
+
+    match_method = models.CharField(
+        max_length=20,
+        choices=MatchMethod.choices,
+        default=MatchMethod.FUZZY_TEXT,
+    )
+
+    confirmed = models.BooleanField(default=False)
+
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "flowise_questionnaire_version_match"
+        ordering = ["-match_score"]
+
+    def __str__(self):
+        compare_name = self.compare_question.name if self.compare_question_id else "(unmatched)"
+        return f"{self.base_question.name} <-> {compare_name} ({self.match_method})"
+
+
+class VersionRoutingDiscrepancy(models.Model):
+    """
+    One structural (or, for CONDITION_MISMATCH, textual) difference between
+    a matched question's routing in the "base" Colectica module and the
+    "compare" Colectica module.
+    """
+
+    class DiscrepancyType(models.TextChoices):
+        # Same "always about a specific edge, never the question itself"
+        # convention as RoutingDiscrepancy.DiscrepancyType -- see that
+        # class's comment for why. No else-branch type here: unlike
+        # Forsta+'s FalseNodes construct, Colectica's own grammar has no
+        # equivalent, so both sides use the same "if [...]" syntax.
+        MISSING_IN_COMPARE = "missing_in_compare", "Edge missing in compare module"
+        MISSING_IN_BASE = "missing_in_base", "Edge missing in base module"
+        # Unlike RoutingDiscrepancy.CONDITION_MISMATCH (reserved, unused --
+        # Colectica and Forsta+ use genuinely different condition grammars,
+        # so a text comparison there would flag every single edge), this one
+        # IS wired up: both base and compare modules use the same "if [...]"
+        # grammar, so a normalized-text comparison is meaningful here. Still
+        # not a proof of different logic -- two differently-worded
+        # conditions can be logically equivalent -- see
+        # version_diff_explainer's explanation text for that caveat.
+        CONDITION_MISMATCH = "condition_mismatch", "Edge condition text differs"
+
+    class Severity(models.TextChoices):
+        INFO = "info", "Info"
+        WARNING = "warning", "Warning"
+        ERROR = "error", "Error"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    question_match = models.ForeignKey(
+        QuestionnaireVersionMatch,
+        on_delete=models.CASCADE,
+        related_name="discrepancies",
+    )
+
+    discrepancy_type = models.CharField(
+        max_length=40,
+        choices=DiscrepancyType.choices,
+    )
+
+    base_edge = models.ForeignKey(
+        RoutingEdge,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
+    compare_edge = models.ForeignKey(
+        RoutingEdge,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
+    details_json = models.JSONField(default=dict, blank=True)
+
+    severity = models.CharField(
+        max_length=20,
+        choices=Severity.choices,
+        default=Severity.WARNING,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "flowise_version_routing_discrepancy"
+        ordering = ["-severity", "created_at"]
+
+    def __str__(self):
+        return f"{self.discrepancy_type} :: {self.question_match}"

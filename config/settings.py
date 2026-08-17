@@ -107,6 +107,19 @@ DATABASES = {
         # No default on purpose -- was the Multipass VM's raw internal IP.
         "HOST": config('DB_HOST'),
         "PORT": "5432",
+        # mcp_server calls the ORM via sync_to_async from a raw ASGI
+        # middleware (TokenAuthMiddleware), outside Django's normal view
+        # dispatch -- so the request_started/request_finished signals that
+        # would otherwise recycle a dead connection never fire there. A
+        # connection that goes stale (e.g. Postgres restarts, or it sits
+        # idle past the DB's own timeout) then stays stale for every
+        # subsequent request on that thread, surfacing as
+        # django.db.utils.InterfaceError: connection already closed.
+        # CONN_HEALTH_CHECKS pings the connection via ensure_connection()
+        # on each use and transparently reopens it if dead, which works
+        # here since it's hooked into the connection object itself rather
+        # than the request-cycle signals this app bypasses.
+        "CONN_HEALTH_CHECKS": True,
     }
 }
 

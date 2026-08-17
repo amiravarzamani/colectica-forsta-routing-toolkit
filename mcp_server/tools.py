@@ -14,6 +14,7 @@ from flowise_questionnaire.models import (
     QuestionnaireModule,
     RoutingDiscrepancy,
     RoutingEdge,
+    VersionRoutingDiscrepancy,
 )
 from flowise_questionnaire.services.agentflow_payload_builder import (
     _extract_external_variables,
@@ -28,6 +29,7 @@ from flowise_questionnaire.services.graph_enrichment import (
     filter_graph_to_neighborhood,
 )
 from flowise_questionnaire.services.routing_diff_explainer import explain_discrepancy
+from flowise_questionnaire.services.version_diff_explainer import explain_version_discrepancy
 
 # Above this many questions, get_module_graph refuses to return the full
 # enriched graph unscoped -- W18-scale modules (1803 questions, ~1428
@@ -625,12 +627,18 @@ def get_routing_discrepancy_detail(
 
     explanation = explain_discrepancy(discrepancy)
 
-    if discrepancy.colectica_edge is not None:
-        focus_question_name = discrepancy.colectica_edge.source_question
-    elif discrepancy.forsta_edge is not None:
-        focus_question_name = discrepancy.forsta_edge.source_question
-    else:
-        focus_question_name = discrepancy.question_match.colectica_question.name
+    # Per-side focus name, not a RoutingEdge's raw source_question: a
+    # compound condition stores a comma-joined multi-variable source (e.g.
+    # "PERGRID, NAME, SNAME, ..."), which never equals any single graph node
+    # id and silently produced an empty neighborhood for any discrepancy on
+    # a multi-source edge -- same fix as routing_diff_views' GUI detail page
+    # (see the qrvss skill's "Multi-source conditional edges" note). Kept in
+    # sync with that fix so this tool mirrors the GUI page exactly.
+    match = discrepancy.question_match
+    colectica_focus_question_name = match.colectica_question.name
+    forsta_focus_question_name = (
+        match.forsta_question.name if match.forsta_question_id else colectica_focus_question_name
+    )
 
     highlight_source_edge = discrepancy.colectica_edge or discrepancy.forsta_edge
     highlight_edge = (
@@ -660,10 +668,12 @@ def get_routing_discrepancy_detail(
             if explanation.edge is not None
             else None
         ),
-        "focus_question_name": focus_question_name,
+        "focus_question_name": colectica_focus_question_name,
+        "colectica_focus_question_name": colectica_focus_question_name,
+        "forsta_focus_question_name": forsta_focus_question_name,
         "highlight_edge": highlight_edge,
-        "colectica_graph": _module_graph_neighborhood(colectica_module, focus_question_name),
-        "forsta_graph": _module_graph_neighborhood(forsta_module, focus_question_name),
+        "colectica_graph": _module_graph_neighborhood(colectica_module, colectica_focus_question_name),
+        "forsta_graph": _module_graph_neighborhood(forsta_module, forsta_focus_question_name),
     }
 
 
@@ -698,4 +708,206 @@ def get_routing_simulation(module_id_or_name: str) -> dict[str, Any]:
         "coverage_intent_count": len(results),
         "status_counts": dict(status_counts),
         "results": results,
+    }
+
+
+def _serialize_version_discrepancy(discrepancy: VersionRoutingDiscrepancy) -> dict[str, Any]:
+    explanation = explain_version_discrepancy(discrepancy)
+    match = discrepancy.question_match
+
+    return {
+        "id": str(discrepancy.id),
+        "discrepancy_type": discrepancy.discrepancy_type,
+        "severity": discrepancy.severity,
+        "base_question": match.base_question.name,
+        "compare_question": match.compare_question.name if match.compare_question_id else None,
+        "summary": explanation.summary,
+        "meaning": explanation.meaning,
+        "edge": (
+            {
+                "origin_module": explanation.edge.origin_module,
+                "source_question": explanation.edge.source_question,
+                "target_question": explanation.edge.target_question,
+                "condition_text": explanation.edge.condition_text,
+            }
+            if explanation.edge is not None
+            else None
+        ),
+    }
+
+
+def _has_version_diff_run(
+    base_module: QuestionnaireModule,
+    compare_module: QuestionnaireModule,
+) -> tuple[bool, dict[str, int]]:
+    """
+    Replicates version_diff_views.version_diff_report_view's has_run/
+    match_summary logic exactly -- same rationale as _has_routing_diff_run.
+    """
+
+    total_questions = base_module.normalized_questions.count()
+    matched_count = base_module.normalized_questions.filter(
+        base_version_matches__compare_question__module=compare_module
+    ).distinct().count()
+
+    discrepancy_count = VersionRoutingDiscrepancy.objects.filter(
+        question_match__base_question__module=base_module,
+        question_match__compare_question__module=compare_module,
+    ).count()
+
+    has_run = matched_count > 0 or discrepancy_count > 0
+
+    match_summary = {
+        "total": total_questions,
+        "matched": matched_count,
+        "unmatched": total_questions - matched_count,
+    }
+
+    return has_run, match_summary
+
+
+def get_version_diff_report(
+    base_module_id_or_name: str,
+    compare_module_id_or_name: str,
+    discrepancy_type: str | None = None,
+    limit: int = 200,
+) -> dict[str, Any]:
+    """
+    Structural (plus condition-text) routing discrepancies between two
+    Colectica-format modules -- e.g. two waves/versions of the same
+    questionnaire -- exactly matching the version-diff report GUI page
+    (/questionnaires/version-diff/<base_id>/<compare_id>/). Does NOT run
+    matching/comparison itself -- if it's never been run for this exact
+    pair, has_run is False and discrepancies is empty rather than raising.
+
+    Both modules must be Colectica JSON; a Forsta+ module raises ToolError.
+    This is a separate pipeline from get_routing_diff_report (Colectica vs
+    Forsta+) -- different matcher priority (name-first) and comparator
+    (adds a CONDITION_MISMATCH type, meaningful here specifically because
+    both sides share the same Colectica grammar).
+
+    discrepancy_type filters to one VersionRoutingDiscrepancy.DiscrepancyType
+    value (missing_in_compare / missing_in_base / condition_mismatch). limit
+    caps how many discrepancies are returned (default 200) --
+    discrepancy_count always reports the true total regardless of limit.
+    """
+
+    base_module = _resolve_colectica_module(base_module_id_or_name)
+    compare_module = _resolve_colectica_module(compare_module_id_or_name)
+
+    has_run, match_summary = _has_version_diff_run(base_module, compare_module)
+
+    discrepancies_qs = VersionRoutingDiscrepancy.objects.filter(
+        question_match__base_question__module=base_module,
+        question_match__compare_question__module=compare_module,
+    ).select_related(
+        "question_match",
+        "question_match__base_question",
+        "question_match__compare_question",
+        "base_edge",
+        "compare_edge",
+    )
+
+    if discrepancy_type:
+        valid_types = {choice for choice, _ in VersionRoutingDiscrepancy.DiscrepancyType.choices}
+        if discrepancy_type not in valid_types:
+            raise ToolError(
+                f"Unknown discrepancy_type '{discrepancy_type}'. Valid values: "
+                f"{', '.join(sorted(valid_types))}."
+            )
+        discrepancies_qs = discrepancies_qs.filter(discrepancy_type=discrepancy_type)
+
+    discrepancy_count = discrepancies_qs.count()
+    discrepancies = list(discrepancies_qs[:limit])
+
+    return {
+        "base_module_id": str(base_module.id),
+        "base_module_name": base_module.name,
+        "compare_module_id": str(compare_module.id),
+        "compare_module_name": compare_module.name,
+        "has_run": has_run,
+        "match_summary": match_summary,
+        "discrepancy_count": discrepancy_count,
+        "discrepancies": [_serialize_version_discrepancy(d) for d in discrepancies],
+    }
+
+
+def get_version_diff_discrepancy_detail(
+    base_module_id_or_name: str,
+    compare_module_id_or_name: str,
+    discrepancy_id: str,
+) -> dict[str, Any]:
+    """
+    One version-diff discrepancy in full detail, exactly matching the
+    version-diff discrepancy detail GUI page
+    (/questionnaires/version-diff/<base_id>/<compare_id>/discrepancy/<discrepancy_id>/)
+    -- including BOTH modules' routing graph neighborhoods around the focus
+    question (base_graph and compare_graph), not just the base side. Either
+    graph is None if that module has no graph built yet, rather than
+    erroring the whole call.
+    """
+
+    base_module = _resolve_colectica_module(base_module_id_or_name)
+    compare_module = _resolve_colectica_module(compare_module_id_or_name)
+
+    try:
+        discrepancy = VersionRoutingDiscrepancy.objects.select_related(
+            "question_match",
+            "question_match__base_question",
+            "question_match__compare_question",
+            "base_edge",
+            "compare_edge",
+        ).get(
+            id=discrepancy_id,
+            question_match__base_question__module=base_module,
+            question_match__compare_question__module=compare_module,
+        )
+    except (VersionRoutingDiscrepancy.DoesNotExist, ValueError, ValidationError):
+        raise ToolError(
+            f"No version-diff discrepancy '{discrepancy_id}' found for modules "
+            f"'{base_module.name}' and '{compare_module.name}'."
+        )
+
+    explanation = explain_version_discrepancy(discrepancy)
+
+    match = discrepancy.question_match
+    base_focus_question_name = match.base_question.name
+    compare_focus_question_name = (
+        match.compare_question.name if match.compare_question_id else base_focus_question_name
+    )
+
+    highlight_source_edge = discrepancy.base_edge or discrepancy.compare_edge
+    highlight_edge = (
+        {
+            "source": highlight_source_edge.source_question,
+            "target": highlight_source_edge.target_question,
+        }
+        if highlight_source_edge is not None
+        else None
+    )
+
+    return {
+        "base_module_id": str(base_module.id),
+        "compare_module_id": str(compare_module.id),
+        "discrepancy_id": str(discrepancy.id),
+        "discrepancy_type": discrepancy.discrepancy_type,
+        "severity": discrepancy.severity,
+        "summary": explanation.summary,
+        "meaning": explanation.meaning,
+        "edge": (
+            {
+                "origin_module": explanation.edge.origin_module,
+                "source_question": explanation.edge.source_question,
+                "target_question": explanation.edge.target_question,
+                "condition_text": explanation.edge.condition_text,
+            }
+            if explanation.edge is not None
+            else None
+        ),
+        "focus_question_name": base_focus_question_name,
+        "base_focus_question_name": base_focus_question_name,
+        "compare_focus_question_name": compare_focus_question_name,
+        "highlight_edge": highlight_edge,
+        "base_graph": _module_graph_neighborhood(base_module, base_focus_question_name),
+        "compare_graph": _module_graph_neighborhood(compare_module, compare_focus_question_name),
     }

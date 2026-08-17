@@ -145,3 +145,41 @@ def show_routing_simulation(module_id_or_name: str) -> str:
         f"status_counts and call out any intents that are not_covered or "
         f"blocked_missing_inputs."
     )
+
+
+def show_version_diff_report(
+    base_module_id_or_name: str,
+    compare_module_id_or_name: str,
+) -> str:
+    """Show the version-diff report between two Colectica modules."""
+
+    return (
+        f"Using the get_version_diff_report tool, show me the version-diff "
+        f"report between base module '{base_module_id_or_name}' and compare "
+        f"module '{compare_module_id_or_name}' (e.g. two waves/versions of "
+        f"the same questionnaire). If has_run is false, tell me matching/"
+        f"comparison hasn't been run for this pair yet instead of guessing. "
+        f"Otherwise summarize the match_summary and group the discrepancies "
+        f"by type and severity, calling out condition_mismatch rows "
+        f"separately since those mean both modules route to the same place "
+        f"but the gating condition changed."
+    )
+
+
+def show_version_diff_discrepancy(
+    base_module_id_or_name: str,
+    compare_module_id_or_name: str,
+    discrepancy_id: str,
+) -> str:
+    """Show one version-diff discrepancy in full detail, both modules' graphs included."""
+
+    return (
+        f"Using the get_version_diff_discrepancy_detail tool, show me full "
+        f"detail for discrepancy '{discrepancy_id}' between base module "
+        f"'{base_module_id_or_name}' and compare module "
+        f"'{compare_module_id_or_name}' -- the summary, the meaning (why "
+        f"this is a lead not a confirmed bug, and if it's a "
+        f"condition_mismatch, that the comparison is textual not semantic), "
+        f"and describe the routing around the focus question on both the "
+        f"base graph and the compare graph."
+    )

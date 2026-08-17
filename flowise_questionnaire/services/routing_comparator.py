@@ -22,6 +22,17 @@ def _conditional_edges_by_source(module: QuestionnaireModule) -> dict[str, list[
     pair avoids O(question_matches) unindexed `source_question__iexact`
     table scans, which is prohibitively slow/memory-heavy on real-sized
     questionnaires (thousands of questions x thousands of edges).
+
+    A multi-variable condition stores a comma-joined source_question (e.g.
+    "NAMEPERM, NAME" for a condition referencing both) -- same convention as
+    graph_builder.py/interview_router.py/coverage_intent_builder.py. Each
+    edge is indexed under every individual variable name, not just the raw
+    joined string, so a lookup for either "NAMEPERM" or "NAME" alone finds
+    it. Without this split, an edge whose source_question happens to be a
+    multi-variable string was only ever discoverable under that exact
+    combined key -- invisible to a lookup by either variable's own name,
+    which made a question's real edge look "missing" on this side and
+    produced a false-positive discrepancy against the other system.
     """
 
     edges_by_source: dict[str, list[RoutingEdge]] = defaultdict(list)
@@ -32,7 +43,10 @@ def _conditional_edges_by_source(module: QuestionnaireModule) -> dict[str, list[
     )
 
     for edge in edges:
-        edges_by_source[edge.source_question.strip().casefold()].append(edge)
+        for source_name in edge.source_question.split(","):
+            source_name = source_name.strip().casefold()
+            if source_name:
+                edges_by_source[source_name].append(edge)
 
     return edges_by_source
 

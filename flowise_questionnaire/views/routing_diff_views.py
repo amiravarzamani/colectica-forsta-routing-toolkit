@@ -129,19 +129,23 @@ def routing_diff_report_view(request, colectica_module_id, forsta_module_id):
     )
 
 
-def _discrepancy_focus_question_name(discrepancy):
+def _discrepancy_focus_question_names(discrepancy):
     """
-    The question whose routing this detail page should center on: the
-    source question of whichever RoutingEdge the discrepancy is actually
-    about (see routing_diff_explainer.explain_discrepancy), falling back to
-    the matched question name if neither edge is set.
+    The (colectica_name, forsta_name) pair this detail page's two graph
+    panels should each center on: the matched question's own name on that
+    side -- always a single, resolvable graph node id.
+
+    Deliberately NOT a RoutingEdge's raw source_question: a compound
+    condition stores a comma-joined multi-variable source (e.g. "PERGRID,
+    NAME, SNAME, PNAME, PSNAME, RESPEMAILCONF"), which never equals any
+    single node id and silently produced an empty neighborhood graph for
+    any discrepancy whose edge had more than one source variable.
     """
 
-    if discrepancy.colectica_edge is not None:
-        return discrepancy.colectica_edge.source_question
-    if discrepancy.forsta_edge is not None:
-        return discrepancy.forsta_edge.source_question
-    return discrepancy.question_match.colectica_question.name
+    match = discrepancy.question_match
+    colectica_name = match.colectica_question.name
+    forsta_name = match.forsta_question.name if match.forsta_question_id else colectica_name
+    return colectica_name, forsta_name
 
 
 def _discrepancy_highlight_edge(discrepancy):
@@ -190,16 +194,16 @@ def routing_diff_discrepancy_detail_view(request, colectica_module_id, forsta_mo
     )
 
     explanation = explain_discrepancy(discrepancy)
-    focus_question_name = _discrepancy_focus_question_name(discrepancy)
+    colectica_focus_question_name, forsta_focus_question_name = _discrepancy_focus_question_names(discrepancy)
     highlight_edge = _discrepancy_highlight_edge(discrepancy)
 
     colectica_graph = _graph_neighborhood_payload(
         _graph_json_payload(getattr(colectica_module, "graph", None)),
-        focus_question_name,
+        colectica_focus_question_name,
     )
     forsta_graph = _graph_neighborhood_payload(
         _graph_json_payload(getattr(forsta_module, "graph", None)),
-        focus_question_name,
+        forsta_focus_question_name,
     )
 
     return render(
@@ -210,7 +214,9 @@ def routing_diff_discrepancy_detail_view(request, colectica_module_id, forsta_mo
             "forsta_module": forsta_module,
             "discrepancy": discrepancy,
             "explanation": explanation,
-            "focus_question_name": focus_question_name,
+            "focus_question_name": colectica_focus_question_name,
+            "colectica_focus_question_name": colectica_focus_question_name,
+            "forsta_focus_question_name": forsta_focus_question_name,
             "highlight_edge": highlight_edge,
             "colectica_graph": colectica_graph,
             "forsta_graph": forsta_graph,

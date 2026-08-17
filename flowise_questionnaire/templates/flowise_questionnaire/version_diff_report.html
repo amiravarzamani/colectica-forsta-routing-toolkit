@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Routing Diff - {{ colectica_module.name }} vs {{ forsta_module.name }}</title>
+    <title>Version Diff - {{ base_module.name }} vs {{ compare_module.name }}</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -277,17 +277,17 @@
     <div class="topbar">
         <a href="{% url 'flowise_questionnaire:module_list' %}">&larr; Back to modules</a>
         <div class="topbar-links">
-            <a href="{% url 'flowise_questionnaire:module_detail' colectica_module.id %}">View Colectica module</a>
-            <a href="{% url 'flowise_questionnaire:module_detail' forsta_module.id %}">View Forsta+ module</a>
+            <a href="{% url 'flowise_questionnaire:module_detail' base_module.id %}">View base module</a>
+            <a href="{% url 'flowise_questionnaire:module_detail' compare_module.id %}">View compare module</a>
         </div>
     </div>
 
     <div class="header">
-        <h1>Routing Diff</h1>
+        <h1>Version Diff</h1>
         <p>
-            Colectica: <strong>{{ colectica_module.name }}</strong>
+            Base: <strong>{{ base_module.name }}</strong> ({{ base_module.version|default:"-" }})
             vs
-            Forsta+: <strong>{{ forsta_module.name }}</strong>
+            Compare: <strong>{{ compare_module.name }}</strong> ({{ compare_module.version|default:"-" }})
         </p>
     </div>
 
@@ -295,12 +295,12 @@
         <div class="notice">
             <div>
                 <strong>This pair hasn't been compared yet.</strong>
-                Click "Run matching &amp; comparison" to match Colectica questions to their Forsta+
+                Click "Run matching &amp; comparison" to match base questions to their compare-module
                 counterparts and check routing for discrepancies. This runs fresh every time, so a
                 re-uploaded file needs it run again even if you compared an earlier version before.
             </div>
             <form method="post"
-                  action="{% url 'flowise_questionnaire:routing_diff_run' colectica_module.id forsta_module.id %}">
+                  action="{% url 'flowise_questionnaire:version_diff_run' base_module.id compare_module.id %}">
                 {% csrf_token %}
                 <button type="submit" class="button">Run matching &amp; comparison</button>
             </form>
@@ -308,11 +308,11 @@
     {% else %}
         <div class="action-bar">
             <div class="muted">
-                Last run: {{ match_summary.matched }} / {{ match_summary.total }} Colectica questions
-                matched to Forsta+.
+                Last run: {{ match_summary.matched }} / {{ match_summary.total }} base questions
+                matched to the compare module.
             </div>
             <form method="post"
-                  action="{% url 'flowise_questionnaire:routing_diff_run' colectica_module.id forsta_module.id %}">
+                  action="{% url 'flowise_questionnaire:version_diff_run' base_module.id compare_module.id %}">
                 {% csrf_token %}
                 <button type="submit" class="button">Re-run matching &amp; comparison</button>
             </form>
@@ -322,11 +322,11 @@
     <div class="summary">
         <div class="summary-card">
             <div class="value">{{ match_summary.total }}</div>
-            <div class="muted">Colectica questions</div>
+            <div class="muted">Base questions</div>
         </div>
         <div class="summary-card">
             <div class="value">{{ match_summary.matched }}</div>
-            <div class="muted">Matched to Forsta+</div>
+            <div class="muted">Matched to compare module</div>
         </div>
         <div class="summary-card">
             <div class="value">{{ match_summary.unmatched }}</div>
@@ -358,26 +358,26 @@
             <tr>
                 <th>Severity</th>
                 <th>Type</th>
-                <th>Colectica question</th>
-                <th>Forsta+ question</th>
+                <th>Base question</th>
+                <th>Compare question</th>
                 <th>Details</th>
                 <th>Graphs</th>
             </tr>
             </thead>
             <tbody id="discrepancy-table-body">
             {% for discrepancy in discrepancies %}
-                {% url 'flowise_questionnaire:routing_diff_discrepancy_detail' colectica_module.id forsta_module.id discrepancy.id as detail_url %}
+                {% url 'flowise_questionnaire:version_diff_discrepancy_detail' base_module.id compare_module.id discrepancy.id as detail_url %}
                 <tr class="diff-row" data-detail-url="{{ detail_url }}">
                     <td>
                         <span class="severity-{{ discrepancy.severity }}">{{ discrepancy.get_severity_display }}</span>
                     </td>
                     <td>{{ discrepancy.get_discrepancy_type_display }}</td>
                     <td>
-                        <code>{{ discrepancy.question_match.colectica_question.name }}</code>
+                        <code>{{ discrepancy.question_match.base_question.name }}</code>
                     </td>
                     <td>
-                        {% if discrepancy.question_match.forsta_question %}
-                            <code>{{ discrepancy.question_match.forsta_question.name }}</code>
+                        {% if discrepancy.question_match.compare_question %}
+                            <code>{{ discrepancy.question_match.compare_question.name }}</code>
                         {% else %}
                             <span class="muted">-</span>
                         {% endif %}
@@ -387,14 +387,14 @@
                         {% if discrepancy.explanation.edge %}
                             <div class="edge-block">
                                 <div class="edge-line">
-                                    <span class="edge-label">{{ discrepancy.explanation.edge.origin_system }} routing edge &mdash; source:</span>
+                                    <span class="edge-label">{{ discrepancy.explanation.edge.origin_module }} module routing edge &mdash; source:</span>
                                     <code>{{ discrepancy.explanation.edge.source_question }}</code>
                                     <span class="edge-label">&rarr; target:</span>
                                     <code>{{ discrepancy.explanation.edge.target_question }}</code>
                                 </div>
                                 {% if discrepancy.explanation.edge.condition_text %}
                                     <div class="edge-line">
-                                        <span class="edge-label">Must hold to fire (raw {{ discrepancy.explanation.edge.origin_system }} condition):</span>
+                                        <span class="edge-label">Must hold to fire (raw {{ discrepancy.explanation.edge.origin_module }}-module condition):</span>
                                         <code>{{ discrepancy.explanation.edge.condition_text }}</code>
                                     </div>
                                 {% endif %}

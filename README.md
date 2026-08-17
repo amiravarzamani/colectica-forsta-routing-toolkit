@@ -86,6 +86,9 @@ only take a URL. Staff users generate/revoke tokens at `/questionnaires/mcp-toke
 secret, no terminal command needed to onboard a new person, and revoking one person's token
 doesn't affect anyone else's.
 
+**Requesting access:** there's no self-serve signup by design. Open an issue on this repository
+or contact the maintainer to request a token.
+
 Tools (`mcp_server/tools.py`), each with a matching MCP **prompt** (`mcp_server/prompts.py`)
 that MCP clients can surface as a slash-command-style shortcut:
 
