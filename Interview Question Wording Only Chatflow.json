@@ -369,7 +369,7 @@
         ],
         "inputs": {
           "cache": "",
-          "baseUrl": "http://172.17.0.1:11434",
+          "baseUrl": "http://localhost:11434",
           "modelName": "qwen2.5:1.5b-instruct",
           "temperature": "0",
           "streaming": true,

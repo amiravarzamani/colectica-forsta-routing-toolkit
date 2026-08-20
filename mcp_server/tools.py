@@ -6,6 +6,7 @@ from typing import Any
 from collections import Counter
 
 from django.core.exceptions import ValidationError
+from django.db.models import Count
 
 from mcp.server.mcpserver.exceptions import ToolError
 
@@ -36,6 +37,11 @@ from flowise_questionnaire.services.version_diff_explainer import explain_versio
 # conditional edges) would otherwise return a multi-MB response. Tune after
 # seeing real response sizes against production data.
 LARGE_MODULE_QUESTION_THRESHOLD = 50
+
+# Per-question cap on discrepancy_ids returned by
+# list_version_diff_affected_questions -- real-world hotspot max seen so far
+# is 14 (W17-vs-W16's NCRRYLATCADP), so 20 is generous headroom.
+_MAX_DISCREPANCY_IDS_PER_QUESTION = 20
 
 
 def _resolve_module(module_id_or_name: str) -> QuestionnaireModule:
@@ -766,6 +772,65 @@ def _has_version_diff_run(
     return has_run, match_summary
 
 
+def _version_discrepancies_base_qs(
+    base_module: QuestionnaireModule,
+    compare_module: QuestionnaireModule,
+):
+    """
+    Shared, unfiltered (by discrepancy_type) base queryset for every
+    version-diff browsing tool -- keeps the module-pair scoping and
+    select_related identical across get_version_diff_report and
+    list_version_diff_affected_questions.
+    """
+
+    return VersionRoutingDiscrepancy.objects.filter(
+        question_match__base_question__module=base_module,
+        question_match__compare_question__module=compare_module,
+    ).select_related(
+        "question_match",
+        "question_match__base_question",
+        "question_match__compare_question",
+        "base_edge",
+        "compare_edge",
+    )
+
+
+def _validate_version_discrepancy_type(discrepancy_type: str) -> None:
+    valid_types = {choice for choice, _ in VersionRoutingDiscrepancy.DiscrepancyType.choices}
+    if discrepancy_type not in valid_types:
+        raise ToolError(
+            f"Unknown discrepancy_type '{discrepancy_type}'. Valid values: "
+            f"{', '.join(sorted(valid_types))}."
+        )
+
+
+def _version_discrepancy_type_breakdown(
+    base_module: QuestionnaireModule,
+    compare_module: QuestionnaireModule,
+) -> dict[str, int]:
+    """
+    Full, unfiltered count per VersionRoutingDiscrepancy.DiscrepancyType for
+    this module pair -- always the whole distribution across all three
+    types, regardless of any discrepancy_type filter a caller applies to a
+    row list elsewhere in the same tool call. Deliberately not scoped to
+    that filter: it's the "shape of the whole diff" answer, and filtering it
+    to match a single-type row filter would defeat the point of surfacing
+    it. Every DiscrepancyType choice is present with 0 if absent, so the
+    shape is always the same three keys.
+    """
+
+    counts_qs = (
+        _version_discrepancies_base_qs(base_module, compare_module)
+        .values("discrepancy_type")
+        .annotate(count=Count("id"))
+    )
+    counts = {row["discrepancy_type"]: row["count"] for row in counts_qs}
+    return {
+        choice: counts.get(choice, 0)
+        for choice, _ in VersionRoutingDiscrepancy.DiscrepancyType.choices
+    }
+
+
 def get_version_diff_report(
     base_module_id_or_name: str,
     compare_module_id_or_name: str,
@@ -790,6 +855,11 @@ def get_version_diff_report(
     value (missing_in_compare / missing_in_base / condition_mismatch). limit
     caps how many discrepancies are returned (default 200) --
     discrepancy_count always reports the true total regardless of limit.
+    discrepancy_type_breakdown always reports the full unfiltered count per
+    type, even when discrepancy_type narrows the discrepancies list itself --
+    use it to see the overall shape of the diff, and pair this tool with
+    list_version_diff_affected_questions to see which questions are
+    hotspots within each type.
     """
 
     base_module = _resolve_colectica_module(base_module_id_or_name)
@@ -797,24 +867,12 @@ def get_version_diff_report(
 
     has_run, match_summary = _has_version_diff_run(base_module, compare_module)
 
-    discrepancies_qs = VersionRoutingDiscrepancy.objects.filter(
-        question_match__base_question__module=base_module,
-        question_match__compare_question__module=compare_module,
-    ).select_related(
-        "question_match",
-        "question_match__base_question",
-        "question_match__compare_question",
-        "base_edge",
-        "compare_edge",
-    )
+    discrepancy_type_breakdown = _version_discrepancy_type_breakdown(base_module, compare_module)
+
+    discrepancies_qs = _version_discrepancies_base_qs(base_module, compare_module)
 
     if discrepancy_type:
-        valid_types = {choice for choice, _ in VersionRoutingDiscrepancy.DiscrepancyType.choices}
-        if discrepancy_type not in valid_types:
-            raise ToolError(
-                f"Unknown discrepancy_type '{discrepancy_type}'. Valid values: "
-                f"{', '.join(sorted(valid_types))}."
-            )
+        _validate_version_discrepancy_type(discrepancy_type)
         discrepancies_qs = discrepancies_qs.filter(discrepancy_type=discrepancy_type)
 
     discrepancy_count = discrepancies_qs.count()
@@ -828,7 +886,98 @@ def get_version_diff_report(
         "has_run": has_run,
         "match_summary": match_summary,
         "discrepancy_count": discrepancy_count,
+        "discrepancy_type_breakdown": discrepancy_type_breakdown,
         "discrepancies": [_serialize_version_discrepancy(d) for d in discrepancies],
+    }
+
+
+def list_version_diff_affected_questions(
+    base_module_id_or_name: str,
+    compare_module_id_or_name: str,
+    discrepancy_type: str | None = None,
+    limit: int = 500,
+) -> dict[str, Any]:
+    """
+    Groups version-diff discrepancies by affected question (base_question
+    name plus its matched compare_question name), sorted with the biggest
+    hotspots first, for the Colectica-vs-Colectica version-diff pipeline.
+    Does NOT run matching/comparison itself -- same has_run=False-not-an-
+    error semantics as get_version_diff_report and
+    get_version_diff_discrepancy_detail if this pair has never been diffed.
+
+    Both modules must be Colectica JSON; a Forsta+ module raises ToolError.
+
+    discrepancy_type filters to one VersionRoutingDiscrepancy.DiscrepancyType
+    value (missing_in_compare / missing_in_base / condition_mismatch) --
+    when set, both group membership and each group's discrepancy_counts are
+    scoped to that one type. limit caps how many question groups are
+    returned (default 500 -- generous enough that a full W18-scale diff,
+    ~103 affected questions in practice, comes back whole rather than as
+    hotspots-only; pass a smaller limit explicitly if you only want the
+    hotspots). affected_question_count always reports the true number of
+    distinct affected questions regardless of limit. Each group's
+    discrepancy_ids is capped separately at 20 -- use them with
+    get_version_diff_discrepancy_detail to see one discrepancy in full,
+    including both modules' routing graphs.
+
+    Pair with get_version_diff_report for the overall discrepancy_type
+    breakdown across the whole module pair -- that field is not repeated
+    here.
+    """
+
+    base_module = _resolve_colectica_module(base_module_id_or_name)
+    compare_module = _resolve_colectica_module(compare_module_id_or_name)
+
+    has_run, _match_summary = _has_version_diff_run(base_module, compare_module)
+
+    discrepancies_qs = _version_discrepancies_base_qs(base_module, compare_module)
+
+    if discrepancy_type:
+        _validate_version_discrepancy_type(discrepancy_type)
+        discrepancies_qs = discrepancies_qs.filter(discrepancy_type=discrepancy_type)
+
+    groups: dict[uuid_module.UUID, dict[str, Any]] = {}
+    for discrepancy in discrepancies_qs.order_by("created_at"):
+        match = discrepancy.question_match
+        group = groups.setdefault(
+            match.id,
+            {
+                "base_question": match.base_question.name,
+                "compare_question": (
+                    match.compare_question.name if match.compare_question_id else None
+                ),
+                "discrepancy_counts": Counter(),
+                "total_discrepancies": 0,
+                "discrepancy_ids": [],
+            },
+        )
+        group["discrepancy_counts"][discrepancy.discrepancy_type] += 1
+        group["total_discrepancies"] += 1
+        if len(group["discrepancy_ids"]) < _MAX_DISCREPANCY_IDS_PER_QUESTION:
+            group["discrepancy_ids"].append(str(discrepancy.id))
+
+    ordered_groups = sorted(
+        groups.values(),
+        key=lambda group: (-group["total_discrepancies"], group["base_question"]),
+    )
+
+    affected_question_count = len(ordered_groups)
+    affected_questions = [
+        {
+            **group,
+            "discrepancy_counts": dict(group["discrepancy_counts"]),
+        }
+        for group in ordered_groups[:limit]
+    ]
+
+    return {
+        "base_module_id": str(base_module.id),
+        "base_module_name": base_module.name,
+        "compare_module_id": str(compare_module.id),
+        "compare_module_name": compare_module.name,
+        "has_run": has_run,
+        "affected_question_count": affected_question_count,
+        "affected_questions": affected_questions,
     }
 
 

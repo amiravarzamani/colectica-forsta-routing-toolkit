@@ -183,3 +183,31 @@ def show_version_diff_discrepancy(
         f"and describe the routing around the focus question on both the "
         f"base graph and the compare graph."
     )
+
+
+def list_version_diff_affected_questions(
+    base_module_id_or_name: str,
+    compare_module_id_or_name: str,
+    discrepancy_type: str | None = None,
+) -> str:
+    """List the questions affected by version-diff discrepancies, hotspots first."""
+
+    scope = (
+        f"discrepancies of type '{discrepancy_type}'"
+        if discrepancy_type
+        else "discrepancies of any type (missing_in_compare, missing_in_base, "
+        "condition_mismatch)"
+    )
+
+    return (
+        f"Using the list_version_diff_affected_questions tool, list the "
+        f"questions affected by {scope} between base module "
+        f"'{base_module_id_or_name}' and compare module "
+        f"'{compare_module_id_or_name}'. If has_run is false, tell me "
+        f"matching/comparison hasn't been run for this pair yet instead of "
+        f"guessing. Otherwise order them hotspots first (highest "
+        f"total_discrepancies), show each question's per-type "
+        f"discrepancy_counts, and mention that get_version_diff_discrepancy_detail "
+        f"can be used with any of a question's discrepancy_ids to see that "
+        f"discrepancy in full, including both modules' routing graphs."
+    )

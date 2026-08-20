@@ -18,8 +18,9 @@ mcp = MCPServer(
         "modules with a clear error; tools whose docstring names Forsta+ "
         "explicitly (get_module_graph, evaluate_edge_condition, and the "
         "Colectica/Forsta+ routing-diff tools) support both. The version-diff "
-        "tools (get_version_diff_report, get_version_diff_discrepancy_detail) "
-        "require both modules to be Colectica JSON."
+        "tools (get_version_diff_report, get_version_diff_discrepancy_detail, "
+        "list_version_diff_affected_questions) require both modules to be "
+        "Colectica JSON."
     ),
 )
 
@@ -36,6 +37,7 @@ mcp.add_tool(tools.get_routing_discrepancy_detail)
 mcp.add_tool(tools.get_routing_simulation)
 mcp.add_tool(tools.get_version_diff_report)
 mcp.add_tool(tools.get_version_diff_discrepancy_detail)
+mcp.add_tool(tools.list_version_diff_affected_questions)
 
 mcp.add_prompt(Prompt.from_function(prompts.list_modules, name="listModules"))
 mcp.add_prompt(Prompt.from_function(prompts.show_module_summary, name="showModuleSummary"))
@@ -56,5 +58,10 @@ mcp.add_prompt(Prompt.from_function(prompts.show_version_diff_report, name="show
 mcp.add_prompt(
     Prompt.from_function(
         prompts.show_version_diff_discrepancy, name="showVersionDiffDiscrepancy"
+    )
+)
+mcp.add_prompt(
+    Prompt.from_function(
+        prompts.list_version_diff_affected_questions, name="listVersionDiffAffectedQuestions"
     )
 )
